@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>曇天ズ - プロトタイプ</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #222;
+    overflow: hidden; /* スクロール防止 */
+    touch-action: none; /* スマホでのスワイプによる画面移動を防止 */
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background-color: #e0e0e0; /* 道路のイメージ */
+  }
+  #ui {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    display: flex;
+    justify-content: space-between;
+    font-family: sans-serif;
+    font-weight: bold;
+    font-size: 18px;
+    color: #333;
+    pointer-events: none;
+  }
+  #gameover {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    font-family: sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div>SCORE: <span id="scoreText">0</span></div>
+  <div>HP: <span id="hpText">100</span></div>
+</div>
+<canvas id="gameCanvas"></canvas>
+<div id="gameover">
+  <h2>体力切れ...</h2>
+  <p>最終スコア: <span id="finalScore"></span></p>
+  <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px;">もう一度走る</button>
+</div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  
+  // スマホ画面サイズに合わせる（基準幅360px）
+  const SCREEN_WIDTH = 360;
+  const SCREEN_HEIGHT = 640;
+  canvas.width = SCREEN_WIDTH;
+  canvas.height = SCREEN_HEIGHT;
+
+  // UI要素
+  const scoreText = document.getElementById('scoreText');
+  const hpText = document.getElementById('hpText');
+  const gameOverScreen = document.getElementById('gameover');
+  const finalScoreText = document.getElementById('finalScore');
+
+  // ゲーム状態
+  let isGameOver = false;
+  let score = 0;
+  let hp = 100;
+  let frameCount = 0;
+  let gameSpeed = 4;
+
+  // プレイヤー（曇天ズ）
+  const player = {
+    x: SCREEN_WIDTH / 2,
+    y: SCREEN_HEIGHT - 100,
+    width: 40,
+    height: 40,
+    color: '#0055ff' // 青色
+  };
+
+  // 落ちてくるオブジェクト
+  let objects = [];
+
+  // 入力処理（PCマウス & スマホタッチ）
+  function movePlayer(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    let x = (clientX - rect.left) * scaleX;
+    
+    // 画面外に出ないように制限
+    x = Math.max(player.width/2, Math.min(SCREEN_WIDTH - player.width/2, x));
+    player.x = x;
+  }
+
+  canvas.addEventListener('touchmove', (e) => {
+    movePlayer(e.touches[0].clientX);
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    // クリック関係なくマウスに追従させます（テスト用）
+    movePlayer(e.clientX);
+  });
+
+  // オブジェクトの生成
+  function spawnObject() {
+    const rand = Math.random();
+    const x = Math.random() * (SCREEN_WIDTH - 30) + 15;
+    
+    if (rand < 0.4) {
+      // マンホールカード（グレーの丸・小スコア）
+      objects.push({ x: x, y: -50, radius: 15, type: 'manhole', color: '#888' });
+    } else if (rand < 0.5) {
+      // 御朱印（赤の四角・大スコア）
+      objects.push({ x: x, y: -50, width: 25, height: 35, type: 'goshuin', color: '#ff2222' });
+    } else if (rand < 0.6) {
+      // ドリンク（緑の丸・HP回復）
+      objects.push({ x: x, y: -50, radius: 12, type: 'drink', color: '#22ff22' });
+    } else {
+      // 障害物（黒の四角・ダメージ）
+      objects.push({ x: x, y: -50, width: 40, height: 40, type: 'obstacle', color: '#111' });
+    }
+  }
+
+  // 衝突判定（ざっくり）
+  function checkCollision(obj) {
+    const px = player.x - player.width/2;
+    const py = player.y - player.height/2;
+    
+    let ox, oy, ow, oh;
+    if (obj.radius) {
+      ox = obj.x - obj.radius; oy = obj.y - obj.radius;
+      ow = obj.radius*2; oh = obj.radius*2;
+    } else {
+      ox = obj.x - obj.width/2; oy = obj.y - obj.height/2;
+      ow = obj.width; oh = obj.height;
+    }
+
+    return (px < ox + ow && px + player.width > ox &&
+            py < oy + oh && py + player.height > oy);
+  }
+
+  // メインループ
+  function update() {
+    if (isGameOver) return;
+
+    // HP減少（息切れ）
+    hp -= 0.05;
+    
+    // スピードアップ
+    if (frameCount % 600 === 0) gameSpeed += 0.5;
+
+    // オブジェクト生成
+    if (frameCount % 45 === 0) spawnObject();
+
+    // オブジェクトの移動と衝突
+    for (let i = objects.length - 1; i >= 0; i--) {
+      let obj = objects[i];
+      obj.y += gameSpeed;
+
+      if (checkCollision(obj)) {
+        if (obj.type === 'manhole') score += 100;
+        if (obj.type === 'goshuin') score += 500;
+        if (obj.type === 'drink') hp = Math.min(100, hp + 15);
+        if (obj.type === 'obstacle') hp -= 20;
+        
+        objects.splice(i, 1); // 取得または衝突したら消す
+      } else if (obj.y > SCREEN_HEIGHT + 50) {
+        objects.splice(i, 1); // 画面外に出たら消す
+      }
+    }
+
+    // ゲームオーバー判定
+    if (hp <= 0) {
+      hp = 0;
+      isGameOver = true;
+      finalScoreText.innerText = score;
+      gameOverScreen.style.display = 'block';
+    }
+
+    // UI更新
+    scoreText.innerText = score;
+    hpText.innerText = Math.floor(hp);
+
+    frameCount++;
+  }
+
+  function draw() {
+    // 背景クリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // プレイヤー描画
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x - player.width/2, player.y - player.height/2, player.width, player.height);
+
+    // オブジェクト描画
+    objects.forEach(obj => {
+      ctx.fillStyle = obj.color;
+      if (obj.radius) {
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+      }
+    });
+  }
+
+  function loop() {
+    update();
+    draw();
+    if (!isGameOver) {
+      requestAnimationFrame(loop);
+    }
+  }
+
+  // ゲームスタート
+  loop();
+</script>
+</body>
+</html>
