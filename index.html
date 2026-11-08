@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>曇天ズ - レイアウト修正版</title>
+<title>曇天ズ - ロゴ画像対応版</title>
 <style>
   html, body {
     margin: 0;
@@ -12,7 +12,6 @@
     height: 100%;
     background-color: #ffffff;
     font-family: sans-serif;
-    /* iOSのSafariなどでアドレスバーが考慮されるようにdvhを使用 */
     height: 100dvh; 
     display: flex;
     flex-direction: column;
@@ -25,9 +24,7 @@
     display: flex;
     padding: 10px;
     gap: 10px;
-    height: 80px;
     box-sizing: border-box;
-    /* 上部の安全領域（ノッチなど）を考慮 */
     padding-top: calc(10px + env(safe-area-inset-top));
     height: calc(80px + env(safe-area-inset-top));
   }
@@ -43,6 +40,12 @@
     font-size: 20px;
     color: #000;
   }
+  /* ロゴ画像を綺麗に収めるスタイル */
+  .header-box img {
+    max-width: 90%;
+    max-height: 80%;
+    object-fit: contain;
+  }
   .score-text {
     font-size: 16px;
     margin-top: 4px;
@@ -50,7 +53,7 @@
 
   /* 中央ゲーム画面 */
   #game-wrapper {
-    flex: 1; /* 残りの高さをすべて埋める */
+    flex: 1;
     margin: 0 10px;
     background-color: #fce25d;
     border-radius: 8px;
@@ -139,7 +142,6 @@
     -webkit-user-select: none;
     cursor: pointer;
     box-sizing: border-box;
-    /* 下部の安全領域（ホームインジケーターなど）を考慮 */
     padding-bottom: env(safe-area-inset-bottom);
     margin-bottom: calc(10px + env(safe-area-inset-bottom));
   }
@@ -165,8 +167,9 @@
 
 <!-- 上部 -->
 <div id="header">
+  <!-- ロゴ画像を読み込む部分（logo.png のファイル名を必要に応じて変更してください） -->
   <div class="header-box">
-    曇天ズ
+    <img src="logo.png" alt="曇天ズコレクト">
   </div>
   <div class="header-box">
     <div>SCORE: <span id="scoreText">0</span></div>
@@ -214,7 +217,6 @@
     canvas.width = gameWrapper.clientWidth;
     canvas.height = gameWrapper.clientHeight;
   }
-  // 少し遅延させてからリサイズすることで、スマホブラウザのアドレスバーの高さ変化に対応
   setTimeout(resizeCanvas, 100);
   window.addEventListener('resize', () => {
       setTimeout(resizeCanvas, 100);
@@ -228,7 +230,6 @@
   const finalScoreText = document.getElementById('finalScore');
   const controlSpace = document.getElementById('control-space');
 
-  // ゲーム状態
   let isGameStarted = false;
   let isGameOver = false;
   let score = 0;
@@ -245,17 +246,12 @@
 
   let objects = [];
 
-  // スタートボタンの処理
   startButton.addEventListener('click', () => {
     startScreen.style.display = 'none';
-    // 開始時にプレイヤー位置を中央にセット
     player.x = canvas.width / 2;
     isGameStarted = true;
   });
 
-  // --------------------------------------------------
-  // 入力処理
-  // --------------------------------------------------
   function movePlayer(clientX) {
     if (!isGameStarted || isGameOver) return; 
     const rect = controlSpace.getBoundingClientRect();
@@ -275,9 +271,6 @@
     if (e.buttons > 0) movePlayer(e.clientX);
   });
 
-  // --------------------------------------------------
-  // ゲームロジック
-  // --------------------------------------------------
   function spawnObject() {
     const rand = Math.random();
     const x = Math.random() * (canvas.width - 30) + 15;
