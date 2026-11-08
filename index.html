@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>曇天ズ - ロゴ画像対応版（ChatGPT修正反映）</title>
+<title>曇天ズ - ロゴ画像背景透過版</title>
 <style>
   html, body {
     margin: 0;
@@ -31,17 +31,17 @@
     flex-shrink: 0;
   }
 
-  /* ロゴ専用エリア */
+  /* ロゴ専用エリア（背景色と枠を削除） */
   .logo-box {
     flex: 1.3;
     min-width: 0;
-    background-color: #fce25d;
-    border-radius: 8px;
+    /* background-color: #fce25d; を削除 */
+    /* border-radius: 8px; を削除 */
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    padding: 5px;
+    padding: 0; /* paddingをなくして画像を最大化 */
     box-sizing: border-box;
   }
 
@@ -50,13 +50,11 @@
     display: block;
     width: 100%;
     height: 100%;
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    object-fit: contain; /* 縦横比を維持 */
     object-position: center;
   }
 
-  /* スコア表示 */
+  /* スコア表示（こちらはそのまま黄色の枠） */
   .header-box {
     flex: 1;
     min-width: 0;
@@ -69,10 +67,6 @@
     font-weight: bold;
     font-size: 20px;
     color: #000;
-  }
-
-  .score-box {
-    flex: 1;
   }
 
   .score-text {
@@ -197,10 +191,10 @@
 <!-- 上部ヘッダー -->
 <div id="header">
   <div class="logo-box">
-    <img src="logo.png" alt="曇天ズコレクト">
+    <img src="logo.png" alt="曇天ズ">
   </div>
 
-  <div class="header-box score-box">
+  <div class="header-box">
     <div>SCORE: <span id="scoreText">0</span></div>
     <div class="score-text">HP: <span id="hpText">100</span></div>
   </div>
