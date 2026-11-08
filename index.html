@@ -2,16 +2,18 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>曇天ズ - レイアウト変更版</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>曇天ズ - レイアウト修正版</title>
 <style>
-  body {
+  html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    height: 100%;
     background-color: #ffffff;
     font-family: sans-serif;
-    /* スマホで画面全体を固定 */
-    height: 100vh;
+    /* iOSのSafariなどでアドレスバーが考慮されるようにdvhを使用 */
+    height: 100dvh; 
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -25,10 +27,13 @@
     gap: 10px;
     height: 80px;
     box-sizing: border-box;
+    /* 上部の安全領域（ノッチなど）を考慮 */
+    padding-top: calc(10px + env(safe-area-inset-top));
+    height: calc(80px + env(safe-area-inset-top));
   }
   .header-box {
     flex: 1;
-    background-color: #fce25d; /* レイアウト図の黄色 */
+    background-color: #fce25d;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
@@ -45,7 +50,7 @@
 
   /* 中央ゲーム画面 */
   #game-wrapper {
-    flex: 1;
+    flex: 1; /* 残りの高さをすべて埋める */
     margin: 0 10px;
     background-color: #fce25d;
     border-radius: 8px;
@@ -56,15 +61,71 @@
     justify-content: center;
   }
   canvas {
-    background-color: #fff8d6; /* ゲームの背景色（少し薄い黄色） */
+    background-color: #fff8d6;
     display: block;
     width: 100%;
     height: 100%;
   }
 
+  /* スタート（説明）画面 */
+  #start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(252, 226, 93, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #333;
+    z-index: 10;
+  }
+  #start-screen h2 {
+    margin: 0 0 10px 0;
+    font-size: 22px;
+  }
+  #start-screen p {
+    font-size: 14px;
+    margin: 0 0 15px 0;
+    line-height: 1.4;
+  }
+  .item-desc {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 14px;
+    margin-bottom: 20px;
+    line-height: 1.8;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .icon-sample {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+  }
+  .btn {
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #000;
+  }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow: none;
+  }
+
   /* 下部操作スペース */
   #control-space {
-    height: 120px; /* 操作スペースの高さ */
+    height: 120px;
     margin: 10px;
     background-color: #fce25d;
     border-radius: 8px;
@@ -77,6 +138,10 @@
     user-select: none;
     -webkit-user-select: none;
     cursor: pointer;
+    box-sizing: border-box;
+    /* 下部の安全領域（ホームインジケーターなど）を考慮 */
+    padding-bottom: env(safe-area-inset-bottom);
+    margin-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
   /* ゲームオーバー画面 */
@@ -92,12 +157,7 @@
     text-align: center;
     border-radius: 10px;
     width: 80%;
-  }
-  #gameover button {
-    padding: 10px 20px;
-    font-size: 16px;
-    margin-top: 15px;
-    cursor: pointer;
+    z-index: 20;
   }
 </style>
 </head>
@@ -117,10 +177,26 @@
 <!-- 中央 -->
 <div id="game-wrapper">
   <canvas id="gameCanvas"></canvas>
+  
+  <!-- スタート画面（説明） -->
+  <div id="start-screen">
+    <h2>遊び方</h2>
+    <p>下の「操作スペース」を左右になぞって移動！<br>走ると体力が減るのでアイテムを取ろう。</p>
+    
+    <div class="item-desc">
+      <div><span class="icon-sample" style="width:15px; height:15px; background:#888; border-radius:50%;"></span> <strong>マンホール:</strong> スコア +100</div>
+      <div><span class="icon-sample" style="width:15px; height:20px; background:#ff2222;"></span> <strong>御朱印:</strong> スコア +500</div>
+      <div><span class="icon-sample" style="width:15px; height:15px; background:#22ff22; border-radius:50%;"></span> <strong>ドリンク:</strong> 体力(HP)回復</div>
+      <div><span class="icon-sample" style="width:15px; height:15px; background:#111;"></span> <strong>障害物:</strong> 体力ダメージ</div>
+    </div>
+    
+    <button id="startButton" class="btn">スタート</button>
+  </div>
+
   <div id="gameover">
     <h2>体力切れ...</h2>
     <p>最終スコア: <span id="finalScore"></span></p>
-    <button onclick="location.reload()">もう一度走る</button>
+    <button class="btn" onclick="location.reload()" style="font-size:16px;">もう一度走る</button>
   </div>
 </div>
 
@@ -134,71 +210,70 @@
   const ctx = canvas.getContext('2d');
   const gameWrapper = document.getElementById('game-wrapper');
 
-  // キャンバスのサイズを親要素（黄色い枠）に合わせる
   function resizeCanvas() {
     canvas.width = gameWrapper.clientWidth;
     canvas.height = gameWrapper.clientHeight;
   }
-  resizeCanvas(); // 初期化
-  window.addEventListener('resize', resizeCanvas); // 画面回転時などに対応
+  // 少し遅延させてからリサイズすることで、スマホブラウザのアドレスバーの高さ変化に対応
+  setTimeout(resizeCanvas, 100);
+  window.addEventListener('resize', () => {
+      setTimeout(resizeCanvas, 100);
+  });
 
-  // UI要素
   const scoreText = document.getElementById('scoreText');
   const hpText = document.getElementById('hpText');
   const gameOverScreen = document.getElementById('gameover');
+  const startScreen = document.getElementById('start-screen');
+  const startButton = document.getElementById('startButton');
   const finalScoreText = document.getElementById('finalScore');
   const controlSpace = document.getElementById('control-space');
 
   // ゲーム状態
+  let isGameStarted = false;
   let isGameOver = false;
   let score = 0;
   let hp = 100;
   let frameCount = 0;
   let gameSpeed = 4;
 
-  // プレイヤー（曇天ズ）
   const player = {
     width: 40,
     height: 40,
-    x: canvas.width / 2, // 初期位置は中央
-    color: '#0055ff' // 青色
+    x: canvas.width / 2,
+    color: '#0055ff'
   };
 
   let objects = [];
 
+  // スタートボタンの処理
+  startButton.addEventListener('click', () => {
+    startScreen.style.display = 'none';
+    // 開始時にプレイヤー位置を中央にセット
+    player.x = canvas.width / 2;
+    isGameStarted = true;
+  });
+
   // --------------------------------------------------
-  // 入力処理（操作スペースのみで受け付ける）
+  // 入力処理
   // --------------------------------------------------
   function movePlayer(clientX) {
+    if (!isGameStarted || isGameOver) return; 
     const rect = controlSpace.getBoundingClientRect();
-    // 操作スペース内のX座標（0 〜 要素の幅）を取得
     let relativeX = clientX - rect.left;
-    
-    // 操作スペースの横幅に対する割合（0.0 〜 1.0）を計算
     let ratio = relativeX / rect.width;
-    
-    // 割合をキャンバスの幅に変換してプレイヤーのX座標とする
     let targetX = ratio * canvas.width;
-    
-    // 画面外に出ないように制限
     player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, targetX));
   }
 
-  // スマホのタッチ操作
-  controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); });
+  controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); }, {passive: false});
   controlSpace.addEventListener('touchmove', (e) => { 
-    e.preventDefault(); // 画面スクロールを防止
+    e.preventDefault(); 
     movePlayer(e.touches[0].clientX); 
-  });
-
-  // PCのマウス操作（ドラッグ中のみ移動）
+  }, {passive: false});
   controlSpace.addEventListener('mousedown', (e) => { movePlayer(e.clientX); });
   controlSpace.addEventListener('mousemove', (e) => {
-    if (e.buttons > 0) { // クリックしたまま動かした時
-      movePlayer(e.clientX);
-    }
+    if (e.buttons > 0) movePlayer(e.clientX);
   });
-
 
   // --------------------------------------------------
   // ゲームロジック
@@ -219,7 +294,6 @@
   }
 
   function checkCollision(obj) {
-    // プレイヤーのY座標（画面下部から一定距離）
     const playerY = canvas.height - 80; 
     const px = player.x - player.width/2;
     const py = playerY - player.height/2;
@@ -237,11 +311,11 @@
   }
 
   function update() {
-    if (isGameOver) return;
+    if (!isGameStarted || isGameOver) return; 
 
-    hp -= 0.05; // 息切れ
-    if (frameCount % 600 === 0) gameSpeed += 0.5; // スピードアップ
-    if (frameCount % 45 === 0) spawnObject(); // オブジェクト生成
+    hp -= 0.05;
+    if (frameCount % 600 === 0) gameSpeed += 0.5;
+    if (frameCount % 45 === 0) spawnObject();
 
     for (let i = objects.length - 1; i >= 0; i--) {
       let obj = objects[i];
@@ -274,12 +348,10 @@
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // プレイヤー描画（Y座標は画面下部固定）
     const playerY = canvas.height - 80;
     ctx.fillStyle = player.color;
     ctx.fillRect(player.x - player.width/2, playerY - player.height/2, player.width, player.height);
 
-    // オブジェクト描画
     objects.forEach(obj => {
       ctx.fillStyle = obj.color;
       if (obj.radius) {
@@ -295,9 +367,7 @@
   function loop() {
     update();
     draw();
-    if (!isGameOver) {
-      requestAnimationFrame(loop);
-    }
+    requestAnimationFrame(loop);
   }
 
   loop();
