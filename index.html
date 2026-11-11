@@ -54,24 +54,130 @@
     object-position: center;
   }
 
-  /* スコア表示（こちらはそのまま黄色の枠） */
+  /* HUD（スコア＋HPバー） */
   .header-box {
-    flex: 1;
+    flex: 1.2;
     min-width: 0;
     background-color: #fce25d;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    box-sizing: border-box;
     font-weight: bold;
-    font-size: 20px;
     color: #000;
+    transition: box-shadow .2s;
   }
+  .header-box.low { box-shadow: inset 0 0 0 3px #ff3b3b; }
 
-  .score-text {
+  .hud-label {
+    font-size: 11px;
+    letter-spacing: .16em;
+    opacity: .65;
+    font-weight: 800;
+  }
+  .hud-score {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  #scoreText {
+    display: inline-block;
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transform-origin: right center;
+    text-shadow: 0 2px 0 rgba(255,255,255,.55);
+  }
+  .hud-hp {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hp-bar {
+    position: relative;
+    flex: 1;
+    height: 14px;
+    border-radius: 7px;
+    background: rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+  #hpGhost, #hpFill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 100%;
+    border-radius: 7px;
+  }
+  #hpGhost { background: rgba(255,255,255,.9); }
+  #hpFill  { background: hsl(120 80% 45%); transition: width .12s linear; }
+  #hpText {
+    min-width: 2.2em;
+    text-align: right;
     font-size: 16px;
-    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .header-box.low #hpFill { animation: hpPulse .5s ease-in-out infinite alternate; }
+  .header-box.low #hpText { color: #d60000; }
+  @keyframes hpPulse { from { filter: brightness(1); } to { filter: brightness(1.6); } }
+
+  /* ---- 取得・ダメージ演出（#game-wrapper内に表示） ---- */
+  .fx-float {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    white-space: nowrap;
+    font-weight: 900;
+    font-size: 26px;
+    color: #fff;
+    text-shadow: 0 2px 0 rgba(0,0,0,.45), 0 0 8px rgba(0,0,0,.35);
+    animation: fxFloat .9s ease-out forwards;
+  }
+  .fx-float.gs  { font-size: 40px; color: #ffd400; text-shadow: 0 2px 0 #7a5a00, 0 0 12px #fff2a0; }
+  .fx-float.dr  { color: #5dffd9; }
+  .fx-float.dmg { font-size: 32px; color: #ff4d4d; }
+  @keyframes fxFloat {
+    0%   { opacity: 0; transform: translate(-50%, -30%)  scale(.6); }
+    15%  { opacity: 1; transform: translate(-50%, -80%)  scale(1.25); }
+    100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
+  }
+  .fx-spark {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    width: 14px; height: 14px;
+    background: currentColor;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    animation: fxSpark .75s ease-out forwards;
+  }
+  @keyframes fxSpark {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(.4) rotate(0); }
+    to   { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.5) rotate(180deg); }
+  }
+  .fx-flash, .fx-vig {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .fx-flash {
+    z-index: 5;
+    background: radial-gradient(circle at center, rgba(255,215,60,0) 35%, rgba(255,200,40,.75) 100%);
+    animation: fxPulseOnce .45s ease-out forwards;
+  }
+  .fx-vig {
+    z-index: 6;
+    box-shadow: inset 0 0 90px 30px rgba(255,0,0,.7);
+    animation: fxPulseOnce .5s ease-out forwards;
+  }
+  @keyframes fxPulseOnce { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .fx-spark { display: none; }
+    .header-box.low #hpFill { animation: none; }
   }
 
   /* 中央ゲーム画面 */
@@ -194,9 +300,13 @@
     <img src="logo.png" alt="曇天ズ">
   </div>
 
-  <div class="header-box">
-    <div>SCORE: <span id="scoreText">0</span></div>
-    <div class="score-text">HP: <span id="hpText">100</span></div>
+  <div class="header-box" id="hud">
+    <div class="hud-score"><span class="hud-label">SCORE</span><span id="scoreText">0</span></div>
+    <div class="hud-hp">
+      <span class="hud-label">HP</span>
+      <div class="hp-bar"><div id="hpGhost"></div><div id="hpFill"></div></div>
+      <span id="hpText">100</span>
+    </div>
   </div>
 </div>
 
@@ -269,6 +379,98 @@
 
   let objects = [];
 
+  // ===== 演出・HUD =====
+  const hud = document.getElementById('hud');
+  const hpFill = document.getElementById('hpFill');
+  const hpGhost = document.getElementById('hpGhost');
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fxAdd(node, ms) {
+    gameWrapper.appendChild(node);
+    setTimeout(() => node.remove(), ms);
+  }
+  function fxMake(cls, text) {
+    const d = document.createElement('div');
+    d.className = cls;
+    if (text != null) d.textContent = text;
+    return d;
+  }
+  function floatText(text, x, y, cls) {
+    const f = fxMake('fx-float ' + cls, text);
+    f.style.left = x + 'px';
+    f.style.top = y + 'px';
+    fxAdd(f, 1000);
+  }
+  function sparkle(x, y, color, n) {
+    if (reduceMotion) return;
+    for (let i = 0; i < n; i++) {
+      const s = fxMake('fx-spark');
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 60;
+      s.style.left = x + 'px';
+      s.style.top = y + 'px';
+      s.style.color = color;
+      s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+      s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+      fxAdd(s, 850);
+    }
+  }
+  function shakeScreen() {
+    if (reduceMotion || !gameWrapper.animate) return;
+    gameWrapper.animate([
+      { transform: 'translate(0,0)' },
+      { transform: 'translate(-7px,3px)' },
+      { transform: 'translate(6px,-4px)' },
+      { transform: 'translate(-4px,-2px)' },
+      { transform: 'translate(3px,2px)' },
+      { transform: 'translate(0,0)' }
+    ], { duration: 280, easing: 'ease-out' });
+  }
+
+  // スコア：カウントアップ＋加算時に拡大
+  let shownScore = 0;
+  let scoreRaf = 0;
+  function showScore(instant) {
+    cancelAnimationFrame(scoreRaf);
+    if (instant) { shownScore = score; scoreText.innerText = score; return; }
+    const from = shownScore, to = score, t0 = performance.now(), dur = 320;
+    (function step(now) {
+      const k = 1 - Math.pow(1 - Math.min(1, (now - t0) / dur), 3);
+      shownScore = Math.round(from + (to - from) * k);
+      scoreText.innerText = shownScore;
+      if (k < 1) scoreRaf = requestAnimationFrame(step);
+    })(t0);
+    if (!reduceMotion && scoreText.animate) {
+      scoreText.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }],
+        { duration: 260, easing: 'ease-out' }
+      );
+    }
+  }
+
+  // HP：バー（緑→黄→赤）、30%以下で脈動、被弾時は白い残像が遅れて縮む
+  let ghostPct = 100;
+  let ghostHoldUntil = 0;
+  function renderHP(hit) {
+    const ratio = Math.max(0, hp) / 100;
+    const pct = ratio * 100;
+    hpFill.style.width = pct + '%';
+    hpFill.style.background = 'hsl(' + Math.round(120 * ratio) + ' 80% 45%)';
+    const now = performance.now();
+    if (hit) {
+      hpGhost.style.transition = 'width .7s ease-out .25s';
+      hpGhost.style.width = pct + '%';
+      ghostPct = pct;
+      ghostHoldUntil = now + 950;
+    } else if (now > ghostHoldUntil || pct > ghostPct) {
+      hpGhost.style.transition = 'none';
+      hpGhost.style.width = pct + '%';
+      ghostPct = pct;
+    }
+    hpText.innerText = Math.floor(hp);
+    hud.classList.toggle('low', ratio <= 0.3 && hp > 0);
+  }
+
   startButton.addEventListener('click', () => {
     startScreen.style.display = 'none';
     player.x = canvas.width / 2;
@@ -333,15 +535,38 @@
     if (frameCount % 600 === 0) gameSpeed += 0.5;
     if (frameCount % 45 === 0) spawnObject();
 
+    let hitThisFrame = false;
+    let scoreChanged = false;
+
     for (let i = objects.length - 1; i >= 0; i--) {
       let obj = objects[i];
       obj.y += gameSpeed;
 
       if (checkCollision(obj)) {
-        if (obj.type === 'manhole') score += 100;
-        if (obj.type === 'goshuin') score += 500;
-        if (obj.type === 'drink') hp = Math.min(100, hp + 15);
-        if (obj.type === 'obstacle') hp -= 20;
+        const fx = obj.x, fy = obj.y - 20;
+        if (obj.type === 'manhole') {
+          score += 100; scoreChanged = true;
+          floatText('+100', fx, fy, 'mh');
+        }
+        if (obj.type === 'goshuin') {
+          score += 500; scoreChanged = true;
+          floatText('+500', fx, fy, 'gs');
+          sparkle(fx, fy, '#ffd400', 14);
+          fxAdd(fxMake('fx-flash'), 500);
+        }
+        if (obj.type === 'drink') {
+          const before = hp;
+          hp = Math.min(100, hp + 15);
+          const healed = hp - before;
+          floatText(healed >= 1 ? 'HP +' + Math.round(healed) : 'MAX', fx, fy, 'dr');
+          sparkle(fx, fy, '#5dffd9', 6);
+        }
+        if (obj.type === 'obstacle') {
+          hp -= 20; hitThisFrame = true;
+          floatText('-20', fx, fy, 'dmg');
+          shakeScreen();
+          fxAdd(fxMake('fx-vig'), 600);
+        }
         
         objects.splice(i, 1);
       } else if (obj.y > canvas.height + 50) {
@@ -356,8 +581,8 @@
       gameOverScreen.style.display = 'block';
     }
 
-    scoreText.innerText = score;
-    hpText.innerText = Math.floor(hp);
+    if (scoreChanged) showScore(isGameOver);
+    renderHP(hitThisFrame);
     frameCount++;
   }
 
