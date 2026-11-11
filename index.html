@@ -320,10 +320,10 @@
     <p>下の「操作スペース」を左右になぞって移動！<br>走ると体力が減るのでアイテムを取ろう。</p>
     
     <div class="item-desc">
-      <div><span class="icon-sample" style="width:15px; height:15px; background:#888; border-radius:50%;"></span> <strong>マンホール:</strong> スコア +100</div>
-      <div><span class="icon-sample" style="width:15px; height:20px; background:#ff2222;"></span> <strong>御朱印:</strong> スコア +500</div>
-      <div><span class="icon-sample" style="width:15px; height:15px; background:#22ff22; border-radius:50%;"></span> <strong>ドリンク:</strong> 体力(HP)回復</div>
-      <div><span class="icon-sample" style="width:15px; height:15px; background:#111;"></span> <strong>障害物:</strong> 体力ダメージ</div>
+      <div><span class="icon-sample" data-sprite="manhole" style="width:15px; height:15px; background:#888; border-radius:50%;"></span> <strong>マンホール:</strong> スコア +100</div>
+      <div><span class="icon-sample" data-sprite="goshuin" style="width:15px; height:20px; background:#ff2222;"></span> <strong>御朱印:</strong> スコア +500</div>
+      <div><span class="icon-sample" data-sprite="drink" style="width:15px; height:15px; background:#22ff22; border-radius:50%;"></span> <strong>ドリンク:</strong> 体力(HP)回復</div>
+      <div><span class="icon-sample" data-sprite="obstacle" style="width:15px; height:15px; background:#111;"></span> <strong>障害物:</strong> 体力ダメージ</div>
     </div>
     
     <button id="startButton" class="btn">スタート</button>
@@ -378,6 +378,43 @@
   };
 
   let objects = [];
+
+  // ===== 画像（スプライト） =====
+  // file : 画像ファイル名（index.html と同じ場所に置く）
+  // size : 画面に描く大きさ（px・縦横比を保ったままこの正方形に収める）
+  // ※当たり判定の大きさは変わりません。画像が無い場合は従来の図形で表示します。
+  const SPRITES = {
+    player:   { file: 'player.png',   size: 52 },
+    manhole:  { file: 'manhole.png',  size: 40 },
+    goshuin:  { file: 'goshuin.png',  size: 46 },
+    drink:    { file: 'drink.png',    size: 36 },
+    obstacle: { file: 'obstacle.png', size: 52 }
+  };
+
+  Object.keys(SPRITES).forEach(key => {
+    const s = SPRITES[key];
+    const img = new Image();
+    img.onload = () => {
+      s.img = img;
+      // 遊び方画面のアイコンも画像にする
+      document.querySelectorAll('.icon-sample[data-sprite="' + key + '"]').forEach(el => {
+        el.style.cssText = 'width:24px; height:24px; background:url(' + s.file + ') center/contain no-repeat;';
+      });
+    };
+    img.onerror = () => { s.img = null; };
+    img.src = s.file;
+  });
+
+  // 画像が描けたら true、無ければ false（呼び出し側が図形で描く）
+  function drawSprite(key, cx, cy) {
+    const s = SPRITES[key];
+    if (!s || !s.img || !s.img.naturalWidth) return false;
+    const r = Math.min(s.size / s.img.naturalWidth, s.size / s.img.naturalHeight);
+    const w = s.img.naturalWidth * r;
+    const h = s.img.naturalHeight * r;
+    ctx.drawImage(s.img, cx - w / 2, cy - h / 2, w, h);
+    return true;
+  }
 
   // ===== 演出・HUD =====
   const hud = document.getElementById('hud');
@@ -590,10 +627,13 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const playerY = canvas.height - 80;
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x - player.width/2, playerY - player.height/2, player.width, player.height);
+    if (!drawSprite('player', player.x, playerY)) {
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x - player.width/2, playerY - player.height/2, player.width, player.height);
+    }
 
     objects.forEach(obj => {
+      if (drawSprite(obj.type, obj.x, obj.y)) return;
       ctx.fillStyle = obj.color;
       if (obj.radius) {
         ctx.beginPath();
