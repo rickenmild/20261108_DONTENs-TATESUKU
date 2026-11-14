@@ -256,10 +256,25 @@
   let objects = [];
   let effects = []; // エフェクト管理用配列
 
+// プレイヤーの初期設定（canvasの準備ができてから位置を決めるよう変更）
+  const player = { width: 50, height: 50, x: 0 }; // xの初期値をとりあえず0に
+
   startButton.addEventListener('click', () => {
     startScreen.style.display = 'none';
-    player.x = canvas.width / 2;
+    
+    // ゲーム開始時にキャンバスの幅の半分を計算して再セットする
+    player.x = canvas.width / 2; 
+    
+    // 全変数をリセット（リトライ時にもフリーズしないようにする安全策）
+    isGameOver = false;
     isGameStarted = true;
+    score = 0;
+    hp = 100;
+    frameCount = 0;
+    gameSpeed = 4;
+    bgY = 0;
+    objects = [];
+    effects = [];
   });
 
   function movePlayer(clientX) {
