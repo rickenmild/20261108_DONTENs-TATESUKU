@@ -3,22 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>曇天ズコレクト - フリーズ修正版</title>
+<title>曇天ズコレクト - 完全版（音声＋リッチエフェクト）</title>
 <style>
   html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
     background-color: #ffffff;
     font-family: sans-serif;
-    height: 100dvh; 
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    touch-action: none; 
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
-  
+
   #header {
     display: flex;
     align-items: stretch;
@@ -40,7 +41,6 @@
     padding: 0;
     box-sizing: border-box;
   }
-
   .logo-box img {
     display: block;
     width: 100%;
@@ -177,6 +177,7 @@
 
   #game-wrapper {
     flex: 1;
+    min-height: 0;
     margin: 0 10px;
     background-color: #fce25d;
     border-radius: 8px;
@@ -199,24 +200,20 @@
     left: 0;
     width: 100%;
     height: 100%;
+    box-sizing: border-box;
+    padding: 12px;
     background-color: rgba(252, 226, 93, 0.95);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: safe center;
+    overflow-y: auto;
     text-align: center;
     color: #333;
     z-index: 10;
   }
-  #start-screen h2 {
-    margin: 0 0 10px 0;
-    font-size: 22px;
-  }
-  #start-screen p {
-    font-size: 14px;
-    margin: 0 0 15px 0;
-    line-height: 1.4;
-  }
+  #start-screen h2 { margin: 0 0 10px 0; font-size: 22px; }
+  #start-screen p  { font-size: 14px; margin: 0 0 15px 0; line-height: 1.4; }
   .item-desc {
     background: #fff;
     padding: 15px;
@@ -238,19 +235,20 @@
     cursor: pointer;
     box-shadow: 0 4px 0 #000;
   }
-  .btn:active {
-    transform: translateY(4px);
-    box-shadow: none;
-  }
+  .btn:active { transform: translateY(4px); box-shadow: none; }
+  .btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .btn:disabled { opacity: .6; cursor: default; }
 
   #control-space {
     height: 120px;
+    flex-shrink: 0;
     margin: 10px;
     background-color: #fce25d;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
     font-size: 24px;
     font-weight: bold;
     color: #000;
@@ -276,6 +274,9 @@
     width: 80%;
     z-index: 20;
   }
+  #gameover h2 { margin: 0 0 8px; }
+  #gameover p  { margin: 6px 0; }
+  #newRecord { display: none; color: #ffd400; font-weight: 900; letter-spacing: .1em; }
 </style>
 </head>
 <body>
@@ -296,7 +297,7 @@
 
 <div id="game-wrapper">
   <canvas id="gameCanvas"></canvas>
-  
+
   <div id="start-screen">
     <h2>遊び方</h2>
     <p>下の「操作スペース」を左右になぞって移動！<br>走ると体力が減るのでアイテムを取ろう。</p>
@@ -306,13 +307,16 @@
       <div><strong>タバコ:</strong> 体力(HP)回復</div>
       <div><strong>うんこ:</strong> 体力ダメージ</div>
     </div>
-    <button id="startButton" class="btn">スタート</button>
+    <p>ハイスコア: <strong id="hiScore">0</strong></p>
+    <button id="startButton" class="btn" disabled>読み込み中…</button>
   </div>
 
   <div id="gameover">
     <h2>体力切れ...</h2>
+    <p id="newRecord">NEW RECORD!</p>
     <p>最終スコア: <span id="finalScore"></span></p>
-    <button class="btn" onclick="location.reload()" style="font-size:16px;">もう一度走る</button>
+    <p style="font-size:13px;opacity:.8;">ハイスコア: <span id="finalHi"></span></p>
+    <button id="restartButton" class="btn" style="font-size:16px;">もう一度走る</button>
   </div>
 </div>
 
@@ -321,46 +325,186 @@
 </div>
 
 <script>
+(() => {
+  'use strict';
+
+  // ===== 調整用パラメータ =====
+  const CFG = {
+    STEP_MS: 1000 / 60,        // 固定タイムステップ（60Hz相当）
+    MAX_STEPS_PER_FRAME: 5,    // 1フレームで進める最大ステップ数
+    HP_DRAIN: 0.05,            // 1ステップあたりのHP自然減少
+    HP_SMOKE: 15,
+    HP_UNKO: 20,
+    BASE_SPEED: 4,
+    SPEED_UP: 0.5,             // レベルごとの加速
+    LEVEL_STEPS: 600,          // 何ステップで1レベル上がるか
+    SPAWN_BASE: 45,            // 初期の出現間隔（ステップ）
+    SPAWN_MIN: 22,
+    SPAWN_DEC: 3,              // レベルごとの短縮
+    // 出現確率（累積）: manhole / goshuin / smoke / 残り=unko
+    P_MANHOLE: 0.38,
+    P_GOSHUIN: 0.48,
+    P_SMOKE:   0.64,
+    KEY_SPEED: 7,              // キーボード移動速度（PCデバッグ用）
+    HI_KEY: 'donten_collect_hi'
+  };
+
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   const gameWrapper = document.getElementById('game-wrapper');
-
-  // 【重要】画像のファイル名を実際のファイル（screenshot.jpeg）に合わせています
-  const imgBg = new Image(); imgBg.src = 'bg.png'; 
-  const imgPlayer = new Image(); imgPlayer.src = 'player-back.png';
-  const imgManhole = new Image(); imgManhole.src = 'mcard.png';
-  const imgGoshuin = new Image(); imgGoshuin.src = 'goshuin.png';
-  const imgSmoke = new Image(); imgSmoke.src = 'smoke.png';
-  const imgUnko = new Image(); imgUnko.src = 'unko.png';
-
-  function resizeCanvas() {
-    canvas.width = gameWrapper.clientWidth;
-    canvas.height = gameWrapper.clientHeight;
-  }
-  // 初期のサイズ合わせを確実に行う
-  resizeCanvas();
-  setTimeout(resizeCanvas, 100);
-  window.addEventListener('resize', () => { setTimeout(resizeCanvas, 100); });
 
   const scoreText = document.getElementById('scoreText');
   const hpText = document.getElementById('hpText');
   const gameOverScreen = document.getElementById('gameover');
   const startScreen = document.getElementById('start-screen');
   const startButton = document.getElementById('startButton');
+  const restartButton = document.getElementById('restartButton');
   const finalScoreText = document.getElementById('finalScore');
+  const finalHiText = document.getElementById('finalHi');
+  const newRecordText = document.getElementById('newRecord');
+  const hiScoreText = document.getElementById('hiScore');
   const controlSpace = document.getElementById('control-space');
 
+  // ===== ハイスコア =====
+  function loadHi() { try { return Number(localStorage.getItem(CFG.HI_KEY)) || 0; } catch (e) { return 0; } }
+  function saveHi(v) { try { localStorage.setItem(CFG.HI_KEY, String(v)); } catch (e) {} }
+  let hiScore = loadHi();
+  hiScoreText.textContent = hiScore;
+
+  // ===== 画像読み込み（失敗してもresolveし、描画側でフォールバック） =====
+  function loadImage(src) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => { console.warn('画像の読み込みに失敗:', src); resolve(img); };
+      img.src = src;
+    });
+  }
+  const IMG_FILES = {
+    bg: 'bg.png', player: 'player-back.png', manhole: 'mcard.png',
+    goshuin: 'goshuin.png', smoke: 'smoke.png', unko: 'unko.png'
+  };
+  const images = {};
+
+  // ===== 音声 =====
+  // BGM: HTMLAudio（ループ用）／SE: Web Audio API（低遅延・多重再生）。失敗時はcloneNodeで代替
+  const bgm = new Audio('bgm.mp3');
+  bgm.loop = true;
+  bgm.volume = 0.4;
+  bgm.preload = 'auto';
+
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let actx = null;
+  try { actx = AC ? new AC() : null; } catch (e) { actx = null; }
+
+  const SE_FILES = {
+    get: 'se_get.mp3', divine: 'se_get_divine.mp3',
+    smoke: 'se_get_smoke.mp3', damage: 'se_damage.mp3'
+  };
+  const seBuffers = {};
+  const seFallback = {};
+
+  async function loadSE(name, url) {
+    if (actx) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const arr = await res.arrayBuffer();
+        seBuffers[name] = await new Promise((ok, ng) => actx.decodeAudioData(arr, ok, ng));
+        return;
+      } catch (e) {
+        console.warn('Web Audioでの読み込み失敗。HTMLAudioで代替:', url, e);
+      }
+    }
+    const a = new Audio(url);
+    a.preload = 'auto';
+    seFallback[name] = a;
+  }
+
+  function playSE(name, vol = 1) {
+    if (actx && seBuffers[name]) {
+      const src = actx.createBufferSource();
+      src.buffer = seBuffers[name];
+      const g = actx.createGain();
+      g.gain.value = vol;
+      src.connect(g);
+      g.connect(actx.destination);
+      src.start(0);
+      return;
+    }
+    const base = seFallback[name];
+    if (base) {
+      const a = base.cloneNode();
+      a.volume = vol;
+      a.play().catch(() => {});
+    }
+  }
+
+  // iOS等の自動再生制限の解除（ユーザー操作内で呼ぶ）
+  function unlockAudio() {
+    if (!actx) return;
+    if (actx.state === 'suspended') actx.resume().catch(() => {});
+    try {
+      const b = actx.createBuffer(1, 1, 22050);
+      const s = actx.createBufferSource();
+      s.buffer = b;
+      s.connect(actx.destination);
+      s.start(0);
+    } catch (e) {}
+  }
+
+  // ===== アセット一括ロード → スタート可能に =====
+  Promise.all([
+    ...Object.entries(IMG_FILES).map(([k, src]) => loadImage(src).then(img => { images[k] = img; })),
+    ...Object.entries(SE_FILES).map(([k, url]) => loadSE(k, url))
+  ]).then(() => {
+    startButton.disabled = false;
+    startButton.textContent = 'スタート';
+  });
+
+  // ===== キャンバスサイズ（論理サイズ=CSSピクセル、描画はDPR倍） =====
+  let W = 0, H = 0, dpr = 1;
+  const player = { width: 50, height: 50, x: 0 };
+  let objects = [];
+
+  function resizeCanvas() {
+    const nw = gameWrapper.clientWidth;
+    const nh = gameWrapper.clientHeight;
+    if (!nw || !nh) return;
+    if (nw === W && nh === H) return;
+    const rx = W ? nw / W : 1;
+    const ry = H ? nh / H : 1;
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width = Math.round(nw * dpr);
+    canvas.height = Math.round(nh * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (W) {
+      player.x *= rx;
+      objects.forEach(o => { o.x *= rx; o.y *= ry; });
+    }
+    W = nw; H = nh;
+    if (!isGameStarted) player.x = W / 2;
+  }
+
+  // ===== 状態 =====
   let isGameStarted = false;
   let isGameOver = false;
+  let isPaused = false;
   let score = 0;
   let hp = 100;
   let frameCount = 0;
-  let gameSpeed = 4;
+  let spawnTimer = 0;
+  let gameSpeed = CFG.BASE_SPEED;
   let bgY = 0;
+  const keys = { left: false, right: false };
 
-  // プレイヤーの初期化（この時点ではxは0にしておく）
-  const player = { width: 50, height: 50, x: 0 };
-  let objects = [];
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(resizeCanvas).observe(gameWrapper);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+  resizeCanvas();
+  setTimeout(resizeCanvas, 100);
 
   // ===== 演出・HUD =====
   const hud = document.getElementById('hud');
@@ -410,17 +554,16 @@
     ], { duration: 280, easing: 'ease-out' });
   }
 
-  // スコア：カウントアップ＋加算時に拡大
   let shownScore = 0;
   let scoreRaf = 0;
   function showScore(instant) {
     cancelAnimationFrame(scoreRaf);
-    if (instant) { shownScore = score; scoreText.innerText = score; return; }
+    if (instant) { shownScore = score; scoreText.textContent = score; return; }
     const from = shownScore, to = score, t0 = performance.now(), dur = 320;
     (function step(now) {
       const k = 1 - Math.pow(1 - Math.min(1, (now - t0) / dur), 3);
       shownScore = Math.round(from + (to - from) * k);
-      scoreText.innerText = shownScore;
+      scoreText.textContent = shownScore;
       if (k < 1) scoreRaf = requestAnimationFrame(step);
     })(t0);
     if (!reduceMotion && scoreText.animate) {
@@ -431,7 +574,6 @@
     }
   }
 
-  // HP：バー（緑→黄→赤）、30%以下で脈動、被弾時は白い残像が遅れて縮む
   let ghostPct = 100;
   let ghostHoldUntil = 0;
   function renderHP(hit) {
@@ -450,125 +592,174 @@
       hpGhost.style.width = pct + '%';
       ghostPct = pct;
     }
-    hpText.innerText = Math.floor(hp);
+    hpText.textContent = Math.floor(hp);
     hud.classList.toggle('low', ratio <= 0.3 && hp > 0);
   }
 
+  // ===== ゲーム開始／リスタート =====
+  function startGame() {
+    unlockAudio();
+    resizeCanvas();
 
-  // スタートボタンを押した時の処理
-  startButton.addEventListener('click', () => {
-    // 画面サイズが確定してから中央に配置する
-    player.x = canvas.width / 2;
     startScreen.style.display = 'none';
-    
-    // パラメータを安全に初期化
+    gameOverScreen.style.display = 'none';
+
+    player.x = W / 2;
     isGameStarted = true;
     isGameOver = false;
+    isPaused = false;
     score = 0;
     hp = 100;
     frameCount = 0;
-    gameSpeed = 4;
+    spawnTimer = 0;
+    gameSpeed = CFG.BASE_SPEED;
     bgY = 0;
     objects = [];
-    // HUDを初期状態に戻す
+    acc = 0;
+    lastTime = 0;
+
     shownScore = 0;
     showScore(true);
     ghostPct = 100;
     ghostHoldUntil = 0;
     renderHP(false);
-  });
 
-  function movePlayer(clientX) {
-    if (!isGameStarted || isGameOver) return; 
-    const rect = controlSpace.getBoundingClientRect();
-    let relativeX = clientX - rect.left;
-    let ratio = relativeX / rect.width;
-    let targetX = ratio * canvas.width;
-    player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, targetX));
+    bgm.currentTime = 0;
+    bgm.play().catch(e => console.log('BGM再生エラー:', e));
   }
 
-  // 操作イベント
-  controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); }, {passive: false});
-  controlSpace.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(e.touches[0].clientX); }, {passive: false});
+  startButton.addEventListener('click', startGame);
+  restartButton.addEventListener('click', startGame);
+
+  // ===== 入力 =====
+  function movePlayer(clientX) {
+    if (!isGameStarted || isGameOver || isPaused) return;
+    const rect = controlSpace.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / rect.width;
+    const targetX = ratio * W;
+    player.x = Math.max(player.width / 2, Math.min(W - player.width / 2, targetX));
+  }
+
+  controlSpace.addEventListener('touchstart', (e) => { e.preventDefault(); movePlayer(e.touches[0].clientX); }, { passive: false });
+  controlSpace.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(e.touches[0].clientX); }, { passive: false });
   controlSpace.addEventListener('mousedown', (e) => { movePlayer(e.clientX); });
   controlSpace.addEventListener('mousemove', (e) => { if (e.buttons > 0) movePlayer(e.clientX); });
 
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') keys.left = true;
+    if (e.key === 'ArrowRight') keys.right = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') keys.left = false;
+    if (e.key === 'ArrowRight') keys.right = false;
+  });
+
+  // ===== バックグラウンド時は一時停止 =====
+  function setPaused(p) {
+    if (!isGameStarted || isGameOver) return;
+    if (p === isPaused) return;
+    isPaused = p;
+    if (p) {
+      bgm.pause();
+    } else {
+      lastTime = 0;
+      acc = 0;
+      bgm.play().catch(() => {});
+    }
+  }
+  document.addEventListener('visibilitychange', () => setPaused(document.hidden));
+  window.addEventListener('pagehide', () => setPaused(true));
+  window.addEventListener('blur', () => keys.left = keys.right = false);
+
+  // ===== ゲームロジック =====
   function spawnObject() {
-    const rand = Math.random();
-    const x = Math.random() * (canvas.width - 40) + 20;
-    if (rand < 0.4) objects.push({ x: x, y: -50, width: 35, height: 35, type: 'manhole' });
-    else if (rand < 0.5) objects.push({ x: x, y: -50, width: 40, height: 40, type: 'goshuin' });
-    else if (rand < 0.6) objects.push({ x: x, y: -50, width: 35, height: 35, type: 'smoke' });
-    else objects.push({ x: x, y: -50, width: 45, height: 45, type: 'unko' });
+    const r = Math.random();
+    const x = Math.random() * (W - 40) + 20;
+    if (r < CFG.P_MANHOLE)      objects.push({ x, y: -50, width: 35, height: 35, type: 'manhole' });
+    else if (r < CFG.P_GOSHUIN) objects.push({ x, y: -50, width: 40, height: 40, type: 'goshuin' });
+    else if (r < CFG.P_SMOKE)   objects.push({ x, y: -50, width: 35, height: 35, type: 'smoke' });
+    else                        objects.push({ x, y: -50, width: 45, height: 45, type: 'unko' });
   }
 
-  function checkCollision(obj) {
-    const playerY = canvas.height - 80; 
-    const px = player.x - player.width/2;
-    const py = playerY - player.height/2;
-    const ox = obj.x - obj.width/2;
-    const oy = obj.y - obj.height/2;
-    const hitBox = 0.7; 
-    return (px < ox + obj.width*hitBox && px + player.width*hitBox > ox &&
-            py < oy + obj.height*hitBox && py + player.height*hitBox > oy);
+  // 中心基準で両者を同じ比率（0.7）に縮めた矩形で判定
+  function checkCollision(obj, playerY) {
+    const k = 0.35;
+    const dx = Math.abs(player.x - obj.x);
+    const dy = Math.abs(playerY - obj.y);
+    return dx < (player.width + obj.width) * k && dy < (player.height + obj.height) * k;
+  }
+
+  function endGame() {
+    hp = 0;
+    isGameOver = true;
+    bgm.pause();
+    showScore(true);
+
+    finalScoreText.textContent = score;
+    const isNew = score > hiScore;
+    if (isNew) { hiScore = score; saveHi(hiScore); }
+    newRecordText.style.display = isNew ? 'block' : 'none';
+    finalHiText.textContent = hiScore;
+    hiScoreText.textContent = hiScore;
+    gameOverScreen.style.display = 'block';
   }
 
   function update() {
-    if (!isGameStarted || isGameOver) return; 
+    if (!isGameStarted || isGameOver || isPaused) return;
 
-    hp -= 0.05;
-    bgY += gameSpeed;
-    if (bgY >= canvas.height) bgY = 0; 
+    if (keys.left)  player.x = Math.max(player.width / 2, player.x - CFG.KEY_SPEED);
+    if (keys.right) player.x = Math.min(W - player.width / 2, player.x + CFG.KEY_SPEED);
 
-    if (frameCount % 600 === 0) gameSpeed += 0.5;
-    if (frameCount % 45 === 0) spawnObject();
+    hp -= CFG.HP_DRAIN;
+    bgY = (bgY + gameSpeed) % H;
 
-    const playerY = canvas.height - 80;
+    const level = Math.floor(frameCount / CFG.LEVEL_STEPS);
+    gameSpeed = CFG.BASE_SPEED + level * CFG.SPEED_UP;
+    const spawnInterval = Math.max(CFG.SPAWN_MIN, CFG.SPAWN_BASE - level * CFG.SPAWN_DEC);
+    if (++spawnTimer >= spawnInterval) { spawnTimer = 0; spawnObject(); }
+
+    const playerY = H - 80;
     let hitThisFrame = false;
     let scoreChanged = false;
 
     for (let i = objects.length - 1; i >= 0; i--) {
-      let obj = objects[i];
+      const obj = objects[i];
       obj.y += gameSpeed;
 
-      if (checkCollision(obj)) {
-        // 演出の表示位置（プレイヤーの少し上）
+      if (checkCollision(obj, playerY)) {
         const fx = player.x, fy = playerY - 30;
+
         if (obj.type === 'manhole') {
           score += 100; scoreChanged = true;
           floatText('+100', fx, fy, 'mh');
-        }
-        if (obj.type === 'goshuin') {
+          playSE('get');
+        } else if (obj.type === 'goshuin') {
           score += 500; scoreChanged = true;
           floatText('+500', fx, fy, 'gs');
           sparkle(fx, fy, '#ffd400', 14);
           fxAdd(fxMake('fx-flash'), 500);
-        }
-        if (obj.type === 'smoke') {            // 回復アイテム
+          playSE('divine');
+        } else if (obj.type === 'smoke') {
           const before = hp;
-          hp = Math.min(100, hp + 15);
+          hp = Math.min(100, hp + CFG.HP_SMOKE);
           const healed = hp - before;
           floatText(healed >= 1 ? 'HP +' + Math.round(healed) : 'MAX', fx, fy, 'dr');
           sparkle(fx, fy, '#5dffd9', 6);
-        }
-        if (obj.type === 'unko') {             // ダメージ
-          hp -= 20; hitThisFrame = true;
-          floatText('-20', fx, fy, 'dmg');
+          playSE('smoke');
+        } else if (obj.type === 'unko') {
+          hp -= CFG.HP_UNKO; hitThisFrame = true;
+          floatText('-' + CFG.HP_UNKO, fx, fy, 'dmg');
           shakeScreen();
           fxAdd(fxMake('fx-vig'), 600);
+          playSE('damage');
         }
         objects.splice(i, 1);
-      } else if (obj.y > canvas.height + 50) {
+      } else if (obj.y > H + 50) {
         objects.splice(i, 1);
       }
     }
 
-    if (hp <= 0) {
-      hp = 0;
-      isGameOver = true;
-      finalScoreText.innerText = score;
-      gameOverScreen.style.display = 'block';
-    }
+    if (hp <= 0) endGame();
 
     if (scoreChanged) showScore(isGameOver);
     renderHP(hitThisFrame);
@@ -576,54 +767,60 @@
   }
 
   function draw() {
-    // Canvasが初期化されていない場合は描画しない
-    if (canvas.width === 0 || canvas.height === 0) return;
+    if (!W || !H) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, W, H);
 
-    // 画像が読み込まれていなくても背景だけは描画してエラーを防ぐ
-    if (imgBg.complete && imgBg.naturalWidth > 0) {
-      ctx.drawImage(imgBg, 0, bgY, canvas.width, canvas.height);
-      ctx.drawImage(imgBg, 0, bgY - canvas.height, canvas.width, canvas.height);
+    const bg = images.bg;
+    if (bg && bg.complete && bg.naturalWidth > 0) {
+      const y = Math.floor(bgY);
+      ctx.drawImage(bg, 0, y, W, H);
+      ctx.drawImage(bg, 0, y - H, W, H);
     } else {
-      ctx.fillStyle = "#555";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#555';
+      ctx.fillRect(0, 0, W, H);
     }
 
-    // プレイヤーの描画（ゲーム開始前も中央に表示）
-    const playerY = canvas.height - 80;
-    // スタート前なら暫定的に画面中央をX座標にする
-    const drawX = isGameStarted ? player.x : canvas.width / 2;
+    const playerY = H - 80;
+    const drawX = isGameStarted ? player.x : W / 2;
+    const pimg = images.player;
 
-    if (imgPlayer.complete && imgPlayer.naturalWidth > 0) {
-      ctx.drawImage(imgPlayer, drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+    if (pimg && pimg.complete && pimg.naturalWidth > 0) {
+      ctx.drawImage(pimg, drawX - player.width / 2, playerY - player.height / 2, player.width, player.height);
     } else {
-      ctx.fillStyle = "#0055ff";
-      ctx.fillRect(drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+      ctx.fillStyle = '#0055ff';
+      ctx.fillRect(drawX - player.width / 2, playerY - player.height / 2, player.width, player.height);
     }
 
-    // オブジェクトの描画
-    objects.forEach(obj => {
-      let imgToDraw;
-      if (obj.type === 'manhole') imgToDraw = imgManhole;
-      if (obj.type === 'goshuin') imgToDraw = imgGoshuin;
-      if (obj.type === 'smoke') imgToDraw = imgSmoke;
-      if (obj.type === 'unko') imgToDraw = imgUnko;
-
-      if (imgToDraw && imgToDraw.complete && imgToDraw.naturalWidth > 0) {
-        ctx.drawImage(imgToDraw, obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+    for (const obj of objects) {
+      const img = images[obj.type];
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, obj.x - obj.width / 2, obj.y - obj.height / 2, obj.width, obj.height);
       }
-    });
-
+    }
   }
 
-  function loop() {
-    update();
+  // ===== メインループ（固定タイムステップ：120Hz端末でも速度が変わらない） =====
+  let lastTime = 0;
+  let acc = 0;
+  function loop(now) {
+    if (!lastTime) lastTime = now;
+    if (!isPaused) {
+      acc += Math.min(now - lastTime, 100); // タブ復帰などの巨大dtを制限
+      let steps = 0;
+      while (acc >= CFG.STEP_MS && steps < CFG.MAX_STEPS_PER_FRAME) {
+        update();
+        acc -= CFG.STEP_MS;
+        steps++;
+      }
+      if (steps === CFG.MAX_STEPS_PER_FRAME) acc = 0;
+    }
+    lastTime = now;
     draw();
     requestAnimationFrame(loop);
   }
-
-  loop();
+  requestAnimationFrame(loop);
+})();
 </script>
 </body>
 </html>

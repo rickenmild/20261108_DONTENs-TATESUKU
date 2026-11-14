@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>曇天ズコレクト - フリーズ修正版</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #ffffff;
+    font-family: sans-serif;
+    height: 100dvh; 
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    touch-action: none; 
+  }
+  
+  #header {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    height: calc(90px + env(safe-area-inset-top));
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+
+  .logo-box {
+    flex: 1.3;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .logo-box img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  /* HUD（スコア＋HPバー） */
+  .header-box {
+    flex: 1.2;
+    min-width: 0;
+    background-color: #fce25d;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    box-sizing: border-box;
+    font-weight: bold;
+    color: #000;
+    transition: box-shadow .2s;
+  }
+  .header-box.low { box-shadow: inset 0 0 0 3px #ff3b3b; }
+
+  .hud-label {
+    font-size: 11px;
+    letter-spacing: .16em;
+    opacity: .65;
+    font-weight: 800;
+  }
+  .hud-score {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  #scoreText {
+    display: inline-block;
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transform-origin: right center;
+    text-shadow: 0 2px 0 rgba(255,255,255,.55);
+  }
+  .hud-hp {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hp-bar {
+    position: relative;
+    flex: 1;
+    height: 14px;
+    border-radius: 7px;
+    background: rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+  #hpGhost, #hpFill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 100%;
+    border-radius: 7px;
+  }
+  #hpGhost { background: rgba(255,255,255,.9); }
+  #hpFill  { background: hsl(120 80% 45%); transition: width .12s linear; }
+  #hpText {
+    min-width: 2.2em;
+    text-align: right;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .header-box.low #hpFill { animation: hpPulse .5s ease-in-out infinite alternate; }
+  .header-box.low #hpText { color: #d60000; }
+  @keyframes hpPulse { from { filter: brightness(1); } to { filter: brightness(1.6); } }
+
+  /* ---- 取得・ダメージ演出（#game-wrapper内に表示） ---- */
+  .fx-float {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    white-space: nowrap;
+    font-weight: 900;
+    font-size: 26px;
+    color: #fff;
+    text-shadow: 0 2px 0 rgba(0,0,0,.45), 0 0 8px rgba(0,0,0,.35);
+    animation: fxFloat .9s ease-out forwards;
+  }
+  .fx-float.gs  { font-size: 40px; color: #ffd400; text-shadow: 0 2px 0 #7a5a00, 0 0 12px #fff2a0; }
+  .fx-float.dr  { color: #5dffd9; }
+  .fx-float.dmg { font-size: 32px; color: #ff4d4d; }
+  @keyframes fxFloat {
+    0%   { opacity: 0; transform: translate(-50%, -30%)  scale(.6); }
+    15%  { opacity: 1; transform: translate(-50%, -80%)  scale(1.25); }
+    100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
+  }
+  .fx-spark {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    width: 14px; height: 14px;
+    background: currentColor;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    animation: fxSpark .75s ease-out forwards;
+  }
+  @keyframes fxSpark {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(.4) rotate(0); }
+    to   { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.5) rotate(180deg); }
+  }
+  .fx-flash, .fx-vig {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .fx-flash {
+    z-index: 5;
+    background: radial-gradient(circle at center, rgba(255,215,60,0) 35%, rgba(255,200,40,.75) 100%);
+    animation: fxPulseOnce .45s ease-out forwards;
+  }
+  .fx-vig {
+    z-index: 6;
+    box-shadow: inset 0 0 90px 30px rgba(255,0,0,.7);
+    animation: fxPulseOnce .5s ease-out forwards;
+  }
+  @keyframes fxPulseOnce { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .fx-spark { display: none; }
+    .header-box.low #hpFill { animation: none; }
+  }
+
+  #game-wrapper {
+    flex: 1;
+    margin: 0 10px;
+    background-color: #fce25d;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    background-color: #555;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  #start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(252, 226, 93, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #333;
+    z-index: 10;
+  }
+  #start-screen h2 {
+    margin: 0 0 10px 0;
+    font-size: 22px;
+  }
+  #start-screen p {
+    font-size: 14px;
+    margin: 0 0 15px 0;
+    line-height: 1.4;
+  }
+  .item-desc {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 14px;
+    margin-bottom: 20px;
+    line-height: 1.8;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .btn {
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #000;
+  }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow: none;
+  }
+
+  #control-space {
+    height: 120px;
+    margin: 10px;
+    background-color: #fce25d;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    padding-bottom: env(safe-area-inset-bottom);
+    margin-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  #gameover {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    width: 80%;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo-box">
+    <img src="logo.png" alt="曇天ズ">
+  </div>
+  <div class="header-box" id="hud">
+    <div class="hud-score"><span class="hud-label">SCORE</span><span id="scoreText">0</span></div>
+    <div class="hud-hp">
+      <span class="hud-label">HP</span>
+      <div class="hp-bar"><div id="hpGhost"></div><div id="hpFill"></div></div>
+      <span id="hpText">100</span>
+    </div>
+  </div>
+</div>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas"></canvas>
+  
+  <div id="start-screen">
+    <h2>遊び方</h2>
+    <p>下の「操作スペース」を左右になぞって移動！<br>走ると体力が減るのでアイテムを取ろう。</p>
+    <div class="item-desc">
+      <div><strong>マンホール:</strong> スコア +100</div>
+      <div><strong>御朱印:</strong> スコア +500</div>
+      <div><strong>タバコ:</strong> 体力(HP)回復</div>
+      <div><strong>うんこ:</strong> 体力ダメージ</div>
+    </div>
+    <button id="startButton" class="btn">スタート</button>
+  </div>
+
+  <div id="gameover">
+    <h2>体力切れ...</h2>
+    <p>最終スコア: <span id="finalScore"></span></p>
+    <button class="btn" onclick="location.reload()" style="font-size:16px;">もう一度走る</button>
+  </div>
+</div>
+
+<div id="control-space">
+  操作スペース<br>（左右になぞる）
+</div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const gameWrapper = document.getElementById('game-wrapper');
+
+  // 【重要】画像のファイル名を実際のファイル（screenshot.jpeg）に合わせています
+  const imgBg = new Image(); imgBg.src = 'bg.png'; 
+  const imgPlayer = new Image(); imgPlayer.src = 'player-back.png';
+  const imgManhole = new Image(); imgManhole.src = 'mcard.png';
+  const imgGoshuin = new Image(); imgGoshuin.src = 'goshuin.png';
+  const imgSmoke = new Image(); imgSmoke.src = 'smoke.png';
+  const imgUnko = new Image(); imgUnko.src = 'unko.png';
+
+  function resizeCanvas() {
+    canvas.width = gameWrapper.clientWidth;
+    canvas.height = gameWrapper.clientHeight;
+  }
+  // 初期のサイズ合わせを確実に行う
+  resizeCanvas();
+  setTimeout(resizeCanvas, 100);
+  window.addEventListener('resize', () => { setTimeout(resizeCanvas, 100); });
+
+  const scoreText = document.getElementById('scoreText');
+  const hpText = document.getElementById('hpText');
+  const gameOverScreen = document.getElementById('gameover');
+  const startScreen = document.getElementById('start-screen');
+  const startButton = document.getElementById('startButton');
+  const finalScoreText = document.getElementById('finalScore');
+  const controlSpace = document.getElementById('control-space');
+
+  let isGameStarted = false;
+  let isGameOver = false;
+  let score = 0;
+  let hp = 100;
+  let frameCount = 0;
+  let gameSpeed = 4;
+  let bgY = 0;
+
+  // プレイヤーの初期化（この時点ではxは0にしておく）
+  const player = { width: 50, height: 50, x: 0 };
+  let objects = [];
+
+  // ===== 演出・HUD =====
+  const hud = document.getElementById('hud');
+  const hpFill = document.getElementById('hpFill');
+  const hpGhost = document.getElementById('hpGhost');
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fxAdd(node, ms) {
+    gameWrapper.appendChild(node);
+    setTimeout(() => node.remove(), ms);
+  }
+  function fxMake(cls, text) {
+    const d = document.createElement('div');
+    d.className = cls;
+    if (text != null) d.textContent = text;
+    return d;
+  }
+  function floatText(text, x, y, cls) {
+    const f = fxMake('fx-float ' + cls, text);
+    f.style.left = x + 'px';
+    f.style.top = y + 'px';
+    fxAdd(f, 1000);
+  }
+  function sparkle(x, y, color, n) {
+    if (reduceMotion) return;
+    for (let i = 0; i < n; i++) {
+      const s = fxMake('fx-spark');
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 60;
+      s.style.left = x + 'px';
+      s.style.top = y + 'px';
+      s.style.color = color;
+      s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+      s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+      fxAdd(s, 850);
+    }
+  }
+  function shakeScreen() {
+    if (reduceMotion || !gameWrapper.animate) return;
+    gameWrapper.animate([
+      { transform: 'translate(0,0)' },
+      { transform: 'translate(-7px,3px)' },
+      { transform: 'translate(6px,-4px)' },
+      { transform: 'translate(-4px,-2px)' },
+      { transform: 'translate(3px,2px)' },
+      { transform: 'translate(0,0)' }
+    ], { duration: 280, easing: 'ease-out' });
+  }
+
+  // スコア：カウントアップ＋加算時に拡大
+  let shownScore = 0;
+  let scoreRaf = 0;
+  function showScore(instant) {
+    cancelAnimationFrame(scoreRaf);
+    if (instant) { shownScore = score; scoreText.innerText = score; return; }
+    const from = shownScore, to = score, t0 = performance.now(), dur = 320;
+    (function step(now) {
+      const k = 1 - Math.pow(1 - Math.min(1, (now - t0) / dur), 3);
+      shownScore = Math.round(from + (to - from) * k);
+      scoreText.innerText = shownScore;
+      if (k < 1) scoreRaf = requestAnimationFrame(step);
+    })(t0);
+    if (!reduceMotion && scoreText.animate) {
+      scoreText.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }],
+        { duration: 260, easing: 'ease-out' }
+      );
+    }
+  }
+
+  // HP：バー（緑→黄→赤）、30%以下で脈動、被弾時は白い残像が遅れて縮む
+  let ghostPct = 100;
+  let ghostHoldUntil = 0;
+  function renderHP(hit) {
+    const ratio = Math.max(0, hp) / 100;
+    const pct = ratio * 100;
+    hpFill.style.width = pct + '%';
+    hpFill.style.background = 'hsl(' + Math.round(120 * ratio) + ' 80% 45%)';
+    const now = performance.now();
+    if (hit) {
+      hpGhost.style.transition = 'width .7s ease-out .25s';
+      hpGhost.style.width = pct + '%';
+      ghostPct = pct;
+      ghostHoldUntil = now + 950;
+    } else if (now > ghostHoldUntil || pct > ghostPct) {
+      hpGhost.style.transition = 'none';
+      hpGhost.style.width = pct + '%';
+      ghostPct = pct;
+    }
+    hpText.innerText = Math.floor(hp);
+    hud.classList.toggle('low', ratio <= 0.3 && hp > 0);
+  }
+
+
+  // スタートボタンを押した時の処理
+  startButton.addEventListener('click', () => {
+    // 画面サイズが確定してから中央に配置する
+    player.x = canvas.width / 2;
+    startScreen.style.display = 'none';
+    
+    // パラメータを安全に初期化
+    isGameStarted = true;
+    isGameOver = false;
+    score = 0;
+    hp = 100;
+    frameCount = 0;
+    gameSpeed = 4;
+    bgY = 0;
+    objects = [];
+    // HUDを初期状態に戻す
+    shownScore = 0;
+    showScore(true);
+    ghostPct = 100;
+    ghostHoldUntil = 0;
+    renderHP(false);
+  });
+
+  function movePlayer(clientX) {
+    if (!isGameStarted || isGameOver) return; 
+    const rect = controlSpace.getBoundingClientRect();
+    let relativeX = clientX - rect.left;
+    let ratio = relativeX / rect.width;
+    let targetX = ratio * canvas.width;
+    player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, targetX));
+  }
+
+  // 操作イベント
+  controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); }, {passive: false});
+  controlSpace.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(e.touches[0].clientX); }, {passive: false});
+  controlSpace.addEventListener('mousedown', (e) => { movePlayer(e.clientX); });
+  controlSpace.addEventListener('mousemove', (e) => { if (e.buttons > 0) movePlayer(e.clientX); });
+
+  function spawnObject() {
+    const rand = Math.random();
+    const x = Math.random() * (canvas.width - 40) + 20;
+    if (rand < 0.4) objects.push({ x: x, y: -50, width: 35, height: 35, type: 'manhole' });
+    else if (rand < 0.5) objects.push({ x: x, y: -50, width: 40, height: 40, type: 'goshuin' });
+    else if (rand < 0.6) objects.push({ x: x, y: -50, width: 35, height: 35, type: 'smoke' });
+    else objects.push({ x: x, y: -50, width: 45, height: 45, type: 'unko' });
+  }
+
+  function checkCollision(obj) {
+    const playerY = canvas.height - 80; 
+    const px = player.x - player.width/2;
+    const py = playerY - player.height/2;
+    const ox = obj.x - obj.width/2;
+    const oy = obj.y - obj.height/2;
+    const hitBox = 0.7; 
+    return (px < ox + obj.width*hitBox && px + player.width*hitBox > ox &&
+            py < oy + obj.height*hitBox && py + player.height*hitBox > oy);
+  }
+
+  function update() {
+    if (!isGameStarted || isGameOver) return; 
+
+    hp -= 0.05;
+    bgY += gameSpeed;
+    if (bgY >= canvas.height) bgY = 0; 
+
+    if (frameCount % 600 === 0) gameSpeed += 0.5;
+    if (frameCount % 45 === 0) spawnObject();
+
+    const playerY = canvas.height - 80;
+    let hitThisFrame = false;
+    let scoreChanged = false;
+
+    for (let i = objects.length - 1; i >= 0; i--) {
+      let obj = objects[i];
+      obj.y += gameSpeed;
+
+      if (checkCollision(obj)) {
+        // 演出の表示位置（プレイヤーの少し上）
+        const fx = player.x, fy = playerY - 30;
+        if (obj.type === 'manhole') {
+          score += 100; scoreChanged = true;
+          floatText('+100', fx, fy, 'mh');
+        }
+        if (obj.type === 'goshuin') {
+          score += 500; scoreChanged = true;
+          floatText('+500', fx, fy, 'gs');
+          sparkle(fx, fy, '#ffd400', 14);
+          fxAdd(fxMake('fx-flash'), 500);
+        }
+        if (obj.type === 'smoke') {            // 回復アイテム
+          const before = hp;
+          hp = Math.min(100, hp + 15);
+          const healed = hp - before;
+          floatText(healed >= 1 ? 'HP +' + Math.round(healed) : 'MAX', fx, fy, 'dr');
+          sparkle(fx, fy, '#5dffd9', 6);
+        }
+        if (obj.type === 'unko') {             // ダメージ
+          hp -= 20; hitThisFrame = true;
+          floatText('-20', fx, fy, 'dmg');
+          shakeScreen();
+          fxAdd(fxMake('fx-vig'), 600);
+        }
+        objects.splice(i, 1);
+      } else if (obj.y > canvas.height + 50) {
+        objects.splice(i, 1);
+      }
+    }
+
+    if (hp <= 0) {
+      hp = 0;
+      isGameOver = true;
+      finalScoreText.innerText = score;
+      gameOverScreen.style.display = 'block';
+    }
+
+    if (scoreChanged) showScore(isGameOver);
+    renderHP(hitThisFrame);
+    frameCount++;
+  }
+
+  function draw() {
+    // Canvasが初期化されていない場合は描画しない
+    if (canvas.width === 0 || canvas.height === 0) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 画像が読み込まれていなくても背景だけは描画してエラーを防ぐ
+    if (imgBg.complete && imgBg.naturalWidth > 0) {
+      ctx.drawImage(imgBg, 0, bgY, canvas.width, canvas.height);
+      ctx.drawImage(imgBg, 0, bgY - canvas.height, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = "#555";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // プレイヤーの描画（ゲーム開始前も中央に表示）
+    const playerY = canvas.height - 80;
+    // スタート前なら暫定的に画面中央をX座標にする
+    const drawX = isGameStarted ? player.x : canvas.width / 2;
+
+    if (imgPlayer.complete && imgPlayer.naturalWidth > 0) {
+      ctx.drawImage(imgPlayer, drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+    } else {
+      ctx.fillStyle = "#0055ff";
+      ctx.fillRect(drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+    }
+
+    // オブジェクトの描画
+    objects.forEach(obj => {
+      let imgToDraw;
+      if (obj.type === 'manhole') imgToDraw = imgManhole;
+      if (obj.type === 'goshuin') imgToDraw = imgGoshuin;
+      if (obj.type === 'smoke') imgToDraw = imgSmoke;
+      if (obj.type === 'unko') imgToDraw = imgUnko;
+
+      if (imgToDraw && imgToDraw.complete && imgToDraw.naturalWidth > 0) {
+        ctx.drawImage(imgToDraw, obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+      }
+    });
+
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
+</body>
+</html>
