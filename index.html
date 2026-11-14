@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>曇天ズコレクト - 画像組み込み＆エフェクト復活版</title>
+<title>曇天ズコレクト - フリーズ修正版</title>
 <style>
   html, body {
     margin: 0;
@@ -19,7 +19,6 @@
     touch-action: none; 
   }
   
-  /* 上部ヘッダー */
   #header {
     display: flex;
     align-items: stretch;
@@ -31,7 +30,6 @@
     flex-shrink: 0;
   }
 
-  /* ロゴ専用エリア */
   .logo-box {
     flex: 1.3;
     min-width: 0;
@@ -43,7 +41,6 @@
     box-sizing: border-box;
   }
 
-  /* ロゴ画像 */
   .logo-box img {
     display: block;
     width: 100%;
@@ -52,7 +49,6 @@
     object-position: center;
   }
 
-  /* スコア表示 */
   .header-box {
     flex: 1;
     min-width: 0;
@@ -72,7 +68,6 @@
     margin-top: 4px;
   }
 
-  /* 中央ゲーム画面 */
   #game-wrapper {
     flex: 1;
     margin: 0 10px;
@@ -91,7 +86,6 @@
     height: 100%;
   }
 
-  /* スタート（説明）画面 */
   #start-screen {
     position: absolute;
     top: 0;
@@ -142,7 +136,6 @@
     box-shadow: none;
   }
 
-  /* 下部操作スペース */
   #control-space {
     height: 120px;
     margin: 10px;
@@ -162,7 +155,6 @@
     margin-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
-  /* ゲームオーバー画面 */
   #gameover {
     display: none;
     position: absolute;
@@ -222,6 +214,7 @@
   const ctx = canvas.getContext('2d');
   const gameWrapper = document.getElementById('game-wrapper');
 
+  // 【重要】画像のファイル名を実際のファイル（screenshot.jpeg）に合わせています
   const imgBg = new Image(); imgBg.src = 'bg.png'; 
   const imgPlayer = new Image(); imgPlayer.src = 'player-back.png';
   const imgManhole = new Image(); imgManhole.src = 'mcard.png';
@@ -233,6 +226,8 @@
     canvas.width = gameWrapper.clientWidth;
     canvas.height = gameWrapper.clientHeight;
   }
+  // 初期のサイズ合わせを確実に行う
+  resizeCanvas();
   setTimeout(resizeCanvas, 100);
   window.addEventListener('resize', () => { setTimeout(resizeCanvas, 100); });
 
@@ -252,22 +247,20 @@
   let gameSpeed = 4;
   let bgY = 0;
 
-  const player = { width: 50, height: 50, x: canvas.width / 2 };
+  // プレイヤーの初期化（この時点ではxは0にしておく）
+  const player = { width: 50, height: 50, x: 0 };
   let objects = [];
   let effects = []; // エフェクト管理用配列
 
-// プレイヤーの初期設定（canvasの準備ができてから位置を決めるよう変更）
-  const player = { width: 50, height: 50, x: 0 }; // xの初期値をとりあえず0に
-
+  // スタートボタンを押した時の処理
   startButton.addEventListener('click', () => {
+    // 画面サイズが確定してから中央に配置する
+    player.x = canvas.width / 2;
     startScreen.style.display = 'none';
     
-    // ゲーム開始時にキャンバスの幅の半分を計算して再セットする
-    player.x = canvas.width / 2; 
-    
-    // 全変数をリセット（リトライ時にもフリーズしないようにする安全策）
-    isGameOver = false;
+    // パラメータを安全に初期化
     isGameStarted = true;
+    isGameOver = false;
     score = 0;
     hp = 100;
     frameCount = 0;
@@ -286,6 +279,7 @@
     player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, targetX));
   }
 
+  // 操作イベント
   controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); }, {passive: false});
   controlSpace.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(e.touches[0].clientX); }, {passive: false});
   controlSpace.addEventListener('mousedown', (e) => { movePlayer(e.clientX); });
@@ -376,18 +370,33 @@
   }
 
   function draw() {
+    // Canvasが初期化されていない場合は描画しない
+    if (canvas.width === 0 || canvas.height === 0) return;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (imgBg.complete) {
+    // 画像が読み込まれていなくても背景だけは描画してエラーを防ぐ
+    if (imgBg.complete && imgBg.naturalWidth > 0) {
       ctx.drawImage(imgBg, 0, bgY, canvas.width, canvas.height);
       ctx.drawImage(imgBg, 0, bgY - canvas.height, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = "#555";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    // プレイヤーの描画（ゲーム開始前も中央に表示）
     const playerY = canvas.height - 80;
-    if (imgPlayer.complete) {
-      ctx.drawImage(imgPlayer, player.x - player.width/2, playerY - player.height/2, player.width, player.height);
+    // スタート前なら暫定的に画面中央をX座標にする
+    const drawX = isGameStarted ? player.x : canvas.width / 2;
+
+    if (imgPlayer.complete && imgPlayer.naturalWidth > 0) {
+      ctx.drawImage(imgPlayer, drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+    } else {
+      ctx.fillStyle = "#0055ff";
+      ctx.fillRect(drawX - player.width/2, playerY - player.height/2, player.width, player.height);
     }
 
+    // オブジェクトの描画
     objects.forEach(obj => {
       let imgToDraw;
       if (obj.type === 'manhole') imgToDraw = imgManhole;
@@ -395,7 +404,7 @@
       if (obj.type === 'smoke') imgToDraw = imgSmoke;
       if (obj.type === 'unko') imgToDraw = imgUnko;
 
-      if (imgToDraw && imgToDraw.complete) {
+      if (imgToDraw && imgToDraw.complete && imgToDraw.naturalWidth > 0) {
         ctx.drawImage(imgToDraw, obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
       }
     });
@@ -406,14 +415,11 @@
       ctx.font = "bold 20px sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = ef.color;
-      ctx.globalAlpha = ef.life / ef.maxLife; // だんだん透明になる
-      
-      // 文字のフチドリ（視認性アップ）
+      ctx.globalAlpha = ef.life / ef.maxLife; 
       ctx.strokeStyle = "black";
       ctx.lineWidth = 3;
       ctx.strokeText(ef.text, ef.x, ef.y);
       ctx.fillText(ef.text, ef.x, ef.y);
-      
       ctx.restore();
     });
   }
