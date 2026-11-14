@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>曇天ズ - ロゴ画像背景透過版</title>
+<title>曇天ズコレクト - 画像組み込み版</title>
 <style>
   html, body {
     margin: 0;
@@ -31,30 +31,38 @@
     flex-shrink: 0;
   }
 
-  /* ロゴ専用エリア（背景色と枠を削除） */
+  /* ロゴ専用エリア */
   .logo-box {
     flex: 1.3;
     min-width: 0;
-    /* background-color: #fce25d; を削除 */
-    /* border-radius: 8px; を削除 */
+    background-color: #fce25d;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    padding: 0; /* paddingをなくして画像を最大化 */
+    padding: 5px;
     box-sizing: border-box;
   }
-
-  /* ロゴ画像 */
   .logo-box img {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain; /* 縦横比を維持 */
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
     object-position: center;
   }
 
+<<<<<<< Updated upstream
   /* HUD（スコア＋HPバー） */
+=======
+<<<<<<< HEAD
+  /* スコア表示 */
+=======
+  /* HUD（スコア＋HPバー） */
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
+>>>>>>> Stashed changes
   .header-box {
     flex: 1.2;
     min-width: 0;
@@ -71,6 +79,12 @@
     color: #000;
     transition: box-shadow .2s;
   }
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+  .score-text {
+=======
+>>>>>>> Stashed changes
   .header-box.low { box-shadow: inset 0 0 0 3px #ff3b3b; }
 
   .hud-label {
@@ -118,6 +132,10 @@
   #hpText {
     min-width: 2.2em;
     text-align: right;
+<<<<<<< Updated upstream
+=======
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
+>>>>>>> Stashed changes
     font-size: 16px;
     font-variant-numeric: tabular-nums;
   }
@@ -193,7 +211,7 @@
     justify-content: center;
   }
   canvas {
-    background-color: #fff8d6;
+    background-color: #555; /* 背景画像が読み込まれるまでの仮の色 */
     display: block;
     width: 100%;
     height: 100%;
@@ -233,11 +251,6 @@
     margin-bottom: 20px;
     line-height: 1.8;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  }
-  .icon-sample {
-    display: inline-block;
-    vertical-align: middle;
-    margin-right: 5px;
   }
   .btn {
     padding: 12px 30px;
@@ -299,6 +312,14 @@
   <div class="logo-box">
     <img src="logo.png" alt="曇天ズ">
   </div>
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+  <div class="header-box">
+    <div>SCORE: <span id="scoreText">0</span></div>
+    <div class="score-text">HP: <span id="hpText">100</span></div>
+=======
+>>>>>>> Stashed changes
 
   <div class="header-box" id="hud">
     <div class="hud-score"><span class="hud-label">SCORE</span><span id="scoreText">0</span></div>
@@ -307,6 +328,10 @@
       <div class="hp-bar"><div id="hpGhost"></div><div id="hpFill"></div></div>
       <span id="hpText">100</span>
     </div>
+<<<<<<< Updated upstream
+=======
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
+>>>>>>> Stashed changes
   </div>
 </div>
 
@@ -314,16 +339,30 @@
 <div id="game-wrapper">
   <canvas id="gameCanvas"></canvas>
   
-  <!-- スタート画面（説明） -->
+  <!-- スタート画面 -->
   <div id="start-screen">
     <h2>遊び方</h2>
     <p>下の「操作スペース」を左右になぞって移動！<br>走ると体力が減るのでアイテムを取ろう。</p>
     
+    <!-- 説明テキストを画像名称に合わせて変更 -->
     <div class="item-desc">
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+      <div><strong>マンホール:</strong> スコア +100</div>
+      <div><strong>御朱印:</strong> スコア +500</div>
+      <div><strong>タバコ:</strong> 体力(HP)回復</div>
+      <div><strong>うんこ:</strong> 体力ダメージ</div>
+=======
+>>>>>>> Stashed changes
       <div><span class="icon-sample" data-sprite="manhole" style="width:15px; height:15px; background:#888; border-radius:50%;"></span> <strong>マンホール:</strong> スコア +100</div>
       <div><span class="icon-sample" data-sprite="goshuin" style="width:15px; height:20px; background:#ff2222;"></span> <strong>御朱印:</strong> スコア +500</div>
       <div><span class="icon-sample" data-sprite="drink" style="width:15px; height:15px; background:#22ff22; border-radius:50%;"></span> <strong>ドリンク:</strong> 体力(HP)回復</div>
       <div><span class="icon-sample" data-sprite="obstacle" style="width:15px; height:15px; background:#111;"></span> <strong>障害物:</strong> 体力ダメージ</div>
+<<<<<<< Updated upstream
+=======
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
+>>>>>>> Stashed changes
     </div>
     
     <button id="startButton" class="btn">スタート</button>
@@ -345,6 +384,16 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   const gameWrapper = document.getElementById('game-wrapper');
+
+  // ==========================================
+  // 画像の読み込み
+  // ==========================================
+  const imgBg = new Image(); imgBg.src = 'bg.jpg'; // ※もし背景がpngなら 'bg.png' に変更してください
+  const imgPlayer = new Image(); imgPlayer.src = 'player-back.png';
+  const imgManhole = new Image(); imgManhole.src = 'manhole.png';
+  const imgGoshuin = new Image(); imgGoshuin.src = 'goshuin.png';
+  const imgSmoke = new Image(); imgSmoke.src = 'smoke.png'; // drink -> smoke
+  const imgUnko = new Image(); imgUnko.src = 'unko.png';   // obstacle -> unko
 
   function resizeCanvas() {
     canvas.width = gameWrapper.clientWidth;
@@ -369,12 +418,12 @@
   let hp = 100;
   let frameCount = 0;
   let gameSpeed = 4;
+  let bgY = 0; // 背景のスクロール位置
 
-  const player = {
-    width: 40,
-    height: 40,
-    x: canvas.width / 2,
-    color: '#0055ff'
+  const player-back = {
+    width: 50, // 画像が見やすいように少し大きめに設定
+    height: 50,
+    x: canvas.width / 2
   };
 
   let objects = [];
@@ -510,7 +559,7 @@
 
   startButton.addEventListener('click', () => {
     startScreen.style.display = 'none';
-    player.x = canvas.width / 2;
+    player-back.x = canvas.width / 2;
     isGameStarted = true;
   });
 
@@ -520,7 +569,7 @@
     let relativeX = clientX - rect.left;
     let ratio = relativeX / rect.width;
     let targetX = ratio * canvas.width;
-    player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, targetX));
+    player-back.x = Math.max(player-back.width/2, Math.min(canvas.width - player-back.width/2, targetX));
   }
 
   controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); }, {passive: false});
@@ -533,42 +582,50 @@
     if (e.buttons > 0) movePlayer(e.clientX);
   });
 
+  // オブジェクトの生成ロジック変更
   function spawnObject() {
     const rand = Math.random();
-    const x = Math.random() * (canvas.width - 30) + 15;
+    const x = Math.random() * (canvas.width - 40) + 20; // 画面端に行き過ぎないように調整
     
+    // アイテム種類を画像ベースに合わせて統一（すべて四角形の当たり判定にします）
     if (rand < 0.4) {
-      objects.push({ x: x, y: -50, radius: 15, type: 'manhole', color: '#888' });
+      objects.push({ x: x, y: -50, width: 35, height: 35, type: 'manhole' });
     } else if (rand < 0.5) {
-      objects.push({ x: x, y: -50, width: 25, height: 35, type: 'goshuin', color: '#ff2222' });
+      objects.push({ x: x, y: -50, width: 40, height: 40, type: 'goshuin' });
     } else if (rand < 0.6) {
-      objects.push({ x: x, y: -50, radius: 12, type: 'drink', color: '#22ff22' });
+      objects.push({ x: x, y: -50, width: 30, height: 30, type: 'smoke' }); // タバコ
     } else {
-      objects.push({ x: x, y: -50, width: 40, height: 40, type: 'obstacle', color: '#111' });
+      objects.push({ x: x, y: -50, width: 45, height: 45, type: 'unko' }); // うんこ
     }
   }
 
+  // 当たり判定
   function checkCollision(obj) {
-    const playerY = canvas.height - 80; 
-    const px = player.x - player.width/2;
-    const py = playerY - player.height/2;
+    const player-backY = canvas.height - 80; 
+    const px = player-back.x - player-back.width/2;
+    const py = player-backY - player-back.height/2;
     
-    let ox, oy, ow, oh;
-    if (obj.radius) {
-      ox = obj.x - obj.radius; oy = obj.y - obj.radius;
-      ow = obj.radius*2; oh = obj.radius*2;
-    } else {
-      ox = obj.x - obj.width/2; oy = obj.y - obj.height/2;
-      ow = obj.width; oh = obj.height;
-    }
-    return (px < ox + ow && px + player.width > ox &&
-            py < oy + oh && py + player.height > oy);
+    const ox = obj.x - obj.width/2;
+    const oy = obj.y - obj.height/2;
+    
+    // 画像の透明部分（余白）を考慮し、判定を少し小さく（厳しく）して遊びやすくする
+    const hitBox = 0.7; 
+    
+    return (px < ox + obj.width*hitBox && px + player-back.width*hitBox > ox &&
+            py < oy + obj.height*hitBox && py + player-back.height*hitBox > oy);
   }
 
   function update() {
     if (!isGameStarted || isGameOver) return; 
 
     hp -= 0.05;
+    
+    // 背景のスクロール処理
+    bgY += gameSpeed;
+    if (bgY >= canvas.height) {
+      bgY = 0; // 画面下まで行ったら上に戻すループ処理
+    }
+
     if (frameCount % 600 === 0) gameSpeed += 0.5;
     if (frameCount % 45 === 0) spawnObject();
 
@@ -580,6 +637,15 @@
       obj.y += gameSpeed;
 
       if (checkCollision(obj)) {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+        if (obj.type === 'manhole') score += 100;
+        if (obj.type === 'goshuin') score += 500;
+        if (obj.type === 'smoke') hp = Math.min(100, hp + 15);
+        if (obj.type === 'unko') hp -= 20;
+=======
+>>>>>>> Stashed changes
         const fx = obj.x, fy = obj.y - 20;
         if (obj.type === 'manhole') {
           score += 100; scoreChanged = true;
@@ -604,6 +670,10 @@
           shakeScreen();
           fxAdd(fxMake('fx-vig'), 600);
         }
+<<<<<<< Updated upstream
+=======
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
+>>>>>>> Stashed changes
         
         objects.splice(i, 1);
       } else if (obj.y > canvas.height + 50) {
@@ -626,13 +696,43 @@
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+<<<<<<< HEAD
+    // 1. 背景の描画（スクロールループのために2枚繋げて描画する）
+    if (imgBg.complete) {
+      ctx.drawImage(imgBg, 0, bgY, canvas.width, canvas.height);
+      ctx.drawImage(imgBg, 0, bgY - canvas.height, canvas.width, canvas.height);
+=======
     const playerY = canvas.height - 80;
     if (!drawSprite('player', player.x, playerY)) {
       ctx.fillStyle = player.color;
       ctx.fillRect(player.x - player.width/2, playerY - player.height/2, player.width, player.height);
+<<<<<<< Updated upstream
+=======
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
+>>>>>>> Stashed changes
     }
 
+    // 2. プレイヤー画像の描画
+    const player-backY = canvas.height - 80;
+    if (imgPlayer.complete) {
+      ctx.drawImage(imgPlayer, player-back.x - player-back.width/2, player-backY - player-back.height/2, player-back.width, player-back.height);
+    }
+
+    // 3. 落ちてくるアイテム・障害物の描画
     objects.forEach(obj => {
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+      let imgToDraw;
+      if (obj.type === 'manhole') imgToDraw = imgManhole;
+      if (obj.type === 'goshuin') imgToDraw = imgGoshuin;
+      if (obj.type === 'smoke') imgToDraw = imgSmoke;
+      if (obj.type === 'unko') imgToDraw = imgUnko;
+
+      if (imgToDraw && imgToDraw.complete) {
+        ctx.drawImage(imgToDraw, obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+=======
+>>>>>>> Stashed changes
       if (drawSprite(obj.type, obj.x, obj.y)) return;
       ctx.fillStyle = obj.color;
       if (obj.radius) {
@@ -641,6 +741,7 @@
         ctx.fill();
       } else {
         ctx.fillRect(obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+>>>>>>> 819d5857876f5852744a57e30f7ffe88d5b7416f
       }
     });
   }
