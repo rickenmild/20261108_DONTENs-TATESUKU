@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>曇天ズコレクト - フリーズ修正版</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #ffffff;
+    font-family: sans-serif;
+    height: 100dvh; 
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    touch-action: none; 
+  }
+  
+  #header {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    height: calc(90px + env(safe-area-inset-top));
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+
+  .logo-box {
+    flex: 1.3;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .logo-box img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .header-box {
+    flex: 1;
+    min-width: 0;
+    background-color: #fce25d;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 20px;
+    color: #000;
+  }
+
+  .score-text {
+    font-size: 16px;
+    margin-top: 4px;
+  }
+
+  #game-wrapper {
+    flex: 1;
+    margin: 0 10px;
+    background-color: #fce25d;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    background-color: #555;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  #start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(252, 226, 93, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #333;
+    z-index: 10;
+  }
+  #start-screen h2 {
+    margin: 0 0 10px 0;
+    font-size: 22px;
+  }
+  #start-screen p {
+    font-size: 14px;
+    margin: 0 0 15px 0;
+    line-height: 1.4;
+  }
+  .item-desc {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 14px;
+    margin-bottom: 20px;
+    line-height: 1.8;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .btn {
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #000;
+  }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow: none;
+  }
+
+  #control-space {
+    height: 120px;
+    margin: 10px;
+    background-color: #fce25d;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    padding-bottom: env(safe-area-inset-bottom);
+    margin-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+
+  #gameover {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    width: 80%;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo-box">
+    <img src="logo.png" alt="曇天ズ">
+  </div>
+  <div class="header-box">
+    <div>SCORE: <span id="scoreText">0</span></div>
+    <div class="score-text">HP: <span id="hpText">100</span></div>
+  </div>
+</div>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas"></canvas>
+  
+  <div id="start-screen">
+    <h2>遊び方</h2>
+    <p>下の「操作スペース」を左右になぞって移動！<br>走ると体力が減るのでアイテムを取ろう。</p>
+    <div class="item-desc">
+      <div><strong>マンホール:</strong> スコア +100</div>
+      <div><strong>御朱印:</strong> スコア +500</div>
+      <div><strong>タバコ:</strong> 体力(HP)回復</div>
+      <div><strong>うんこ:</strong> 体力ダメージ</div>
+    </div>
+    <button id="startButton" class="btn">スタート</button>
+  </div>
+
+  <div id="gameover">
+    <h2>体力切れ...</h2>
+    <p>最終スコア: <span id="finalScore"></span></p>
+    <button class="btn" onclick="location.reload()" style="font-size:16px;">もう一度走る</button>
+  </div>
+</div>
+
+<div id="control-space">
+  操作スペース<br>（左右になぞる）
+</div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const gameWrapper = document.getElementById('game-wrapper');
+
+  // 【重要】画像のファイル名を実際のファイル（screenshot.jpeg）に合わせています
+  const imgBg = new Image(); imgBg.src = 'bg.png'; 
+  const imgPlayer = new Image(); imgPlayer.src = 'player-back.png';
+  const imgManhole = new Image(); imgManhole.src = 'mcard.png';
+  const imgGoshuin = new Image(); imgGoshuin.src = 'goshuin.png';
+  const imgSmoke = new Image(); imgSmoke.src = 'smoke.png';
+  const imgUnko = new Image(); imgUnko.src = 'unko.png';
+
+  function resizeCanvas() {
+    canvas.width = gameWrapper.clientWidth;
+    canvas.height = gameWrapper.clientHeight;
+  }
+  // 初期のサイズ合わせを確実に行う
+  resizeCanvas();
+  setTimeout(resizeCanvas, 100);
+  window.addEventListener('resize', () => { setTimeout(resizeCanvas, 100); });
+
+  const scoreText = document.getElementById('scoreText');
+  const hpText = document.getElementById('hpText');
+  const gameOverScreen = document.getElementById('gameover');
+  const startScreen = document.getElementById('start-screen');
+  const startButton = document.getElementById('startButton');
+  const finalScoreText = document.getElementById('finalScore');
+  const controlSpace = document.getElementById('control-space');
+
+  let isGameStarted = false;
+  let isGameOver = false;
+  let score = 0;
+  let hp = 100;
+  let frameCount = 0;
+  let gameSpeed = 4;
+  let bgY = 0;
+
+  // プレイヤーの初期化（この時点ではxは0にしておく）
+  const player = { width: 50, height: 50, x: 0 };
+  let objects = [];
+  let effects = []; // エフェクト管理用配列
+
+  // スタートボタンを押した時の処理
+  startButton.addEventListener('click', () => {
+    // 画面サイズが確定してから中央に配置する
+    player.x = canvas.width / 2;
+    startScreen.style.display = 'none';
+    
+    // パラメータを安全に初期化
+    isGameStarted = true;
+    isGameOver = false;
+    score = 0;
+    hp = 100;
+    frameCount = 0;
+    gameSpeed = 4;
+    bgY = 0;
+    objects = [];
+    effects = [];
+  });
+
+  function movePlayer(clientX) {
+    if (!isGameStarted || isGameOver) return; 
+    const rect = controlSpace.getBoundingClientRect();
+    let relativeX = clientX - rect.left;
+    let ratio = relativeX / rect.width;
+    let targetX = ratio * canvas.width;
+    player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, targetX));
+  }
+
+  // 操作イベント
+  controlSpace.addEventListener('touchstart', (e) => { movePlayer(e.touches[0].clientX); }, {passive: false});
+  controlSpace.addEventListener('touchmove', (e) => { e.preventDefault(); movePlayer(e.touches[0].clientX); }, {passive: false});
+  controlSpace.addEventListener('mousedown', (e) => { movePlayer(e.clientX); });
+  controlSpace.addEventListener('mousemove', (e) => { if (e.buttons > 0) movePlayer(e.clientX); });
+
+  function spawnObject() {
+    const rand = Math.random();
+    const x = Math.random() * (canvas.width - 40) + 20;
+    if (rand < 0.4) objects.push({ x: x, y: -50, width: 35, height: 35, type: 'manhole' });
+    else if (rand < 0.5) objects.push({ x: x, y: -50, width: 40, height: 40, type: 'goshuin' });
+    else if (rand < 0.6) objects.push({ x: x, y: -50, width: 35, height: 35, type: 'smoke' });
+    else objects.push({ x: x, y: -50, width: 45, height: 45, type: 'unko' });
+  }
+
+  function checkCollision(obj) {
+    const playerY = canvas.height - 80; 
+    const px = player.x - player.width/2;
+    const py = playerY - player.height/2;
+    const ox = obj.x - obj.width/2;
+    const oy = obj.y - obj.height/2;
+    const hitBox = 0.7; 
+    return (px < ox + obj.width*hitBox && px + player.width*hitBox > ox &&
+            py < oy + obj.height*hitBox && py + player.height*hitBox > oy);
+  }
+
+  // エフェクトを発生させる関数
+  function createEffect(x, y, text, color) {
+    effects.push({ x: x, y: y, text: text, color: color, life: 30, maxLife: 30 });
+  }
+
+  function update() {
+    if (!isGameStarted || isGameOver) return; 
+
+    hp -= 0.05;
+    bgY += gameSpeed;
+    if (bgY >= canvas.height) bgY = 0; 
+
+    if (frameCount % 600 === 0) gameSpeed += 0.5;
+    if (frameCount % 45 === 0) spawnObject();
+
+    const playerY = canvas.height - 80;
+
+    for (let i = objects.length - 1; i >= 0; i--) {
+      let obj = objects[i];
+      obj.y += gameSpeed;
+
+      if (checkCollision(obj)) {
+        if (obj.type === 'manhole') {
+          score += 100;
+          createEffect(player.x, playerY, "+100", "#ffeb3b");
+        }
+        if (obj.type === 'goshuin') {
+          score += 500;
+          createEffect(player.x, playerY, "+500", "#ff5722");
+        }
+        if (obj.type === 'smoke') {
+          hp = Math.min(100, hp + 15);
+          createEffect(player.x, playerY, "HP+15", "#4caf50");
+        }
+        if (obj.type === 'unko') {
+          hp -= 20;
+          createEffect(player.x, playerY, "DAMAGE!", "#f44336");
+        }
+        objects.splice(i, 1);
+      } else if (obj.y > canvas.height + 50) {
+        objects.splice(i, 1);
+      }
+    }
+
+    // エフェクトの更新（上に浮かび上がりながら消える）
+    for (let i = effects.length - 1; i >= 0; i--) {
+      let ef = effects[i];
+      ef.y -= 2;
+      ef.life--;
+      if (ef.life <= 0) effects.splice(i, 1);
+    }
+
+    if (hp <= 0) {
+      hp = 0;
+      isGameOver = true;
+      finalScoreText.innerText = score;
+      gameOverScreen.style.display = 'block';
+    }
+
+    scoreText.innerText = score;
+    hpText.innerText = Math.floor(hp);
+    frameCount++;
+  }
+
+  function draw() {
+    // Canvasが初期化されていない場合は描画しない
+    if (canvas.width === 0 || canvas.height === 0) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 画像が読み込まれていなくても背景だけは描画してエラーを防ぐ
+    if (imgBg.complete && imgBg.naturalWidth > 0) {
+      ctx.drawImage(imgBg, 0, bgY, canvas.width, canvas.height);
+      ctx.drawImage(imgBg, 0, bgY - canvas.height, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = "#555";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // プレイヤーの描画（ゲーム開始前も中央に表示）
+    const playerY = canvas.height - 80;
+    // スタート前なら暫定的に画面中央をX座標にする
+    const drawX = isGameStarted ? player.x : canvas.width / 2;
+
+    if (imgPlayer.complete && imgPlayer.naturalWidth > 0) {
+      ctx.drawImage(imgPlayer, drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+    } else {
+      ctx.fillStyle = "#0055ff";
+      ctx.fillRect(drawX - player.width/2, playerY - player.height/2, player.width, player.height);
+    }
+
+    // オブジェクトの描画
+    objects.forEach(obj => {
+      let imgToDraw;
+      if (obj.type === 'manhole') imgToDraw = imgManhole;
+      if (obj.type === 'goshuin') imgToDraw = imgGoshuin;
+      if (obj.type === 'smoke') imgToDraw = imgSmoke;
+      if (obj.type === 'unko') imgToDraw = imgUnko;
+
+      if (imgToDraw && imgToDraw.complete && imgToDraw.naturalWidth > 0) {
+        ctx.drawImage(imgToDraw, obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+      }
+    });
+
+    // エフェクトの描画
+    effects.forEach(ef => {
+      ctx.save();
+      ctx.font = "bold 20px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = ef.color;
+      ctx.globalAlpha = ef.life / ef.maxLife; 
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 3;
+      ctx.strokeText(ef.text, ef.x, ef.y);
+      ctx.fillText(ef.text, ef.x, ef.y);
+      ctx.restore();
+    });
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
+</body>
+</html>
